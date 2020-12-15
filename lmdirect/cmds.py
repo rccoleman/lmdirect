@@ -1,12 +1,4 @@
-# CMD = {
-#     "ON": "W000000010139",
-#     "OFF": "W000000010038",
-#     "STATUS": "R40000020D8",
-#     "CONFIG": "R0000001FE9",
-#     "AUTO_SCHED": "R0310001DEB",
-#     "SET_AUTO_ON": "W0310001DFE061106110611061106110611061100000000000000000000000000003",
-#     "SET_AUTO_OFF": "W030000070B0F15070D0C14E2",
-# }
+"""Local API commands for La Marzocco espresso machines"""
 
 # Commands
 
@@ -31,8 +23,6 @@ EB_PREAMBLE = "0310001D"
 RESPONSE_GOOD = "OK"
 
 # Response Maps
-
-
 class Element:
     def __init__(self, index, size=1):
         self._index = index
@@ -47,14 +37,16 @@ class Element:
         return self._size
 
 
-# 40 1C 00 04
+# R
+# 40 1C 00 04: Preamble
 # 03 BC: Coffee Temp (95.6C)
 # 04 D8: Steam Temp (124.0C)
 # B6
 
 SHORT_MAP = {Element(4, 2): "COFFEE_TEMP", Element(6, 2): "STEAM_TEMP"}
 
-# 40 00 00 20
+# R
+# 40 00 00 20: Preamble
 # 01 78 02
 # 53 6E 31 39 31 32 30 30 30 34 39 32 00 00 00 00 00 00 00 00
 # 27: 01: Power (ON)
@@ -69,7 +61,8 @@ D8_MAP = {
     # Element(34, 2): "STEAM_TEMP",
 }
 
-# 00 00 00 1F
+# R
+# 00 00 00 1F: Preamble
 # 01 00 00 02 6E 31 39
 # 11: 03 C7: Coffee Temp Set (96.7C)
 # 13: 04 D9: Steam Temp Set (124.1C)
@@ -113,7 +106,9 @@ E9_MAP = {
 }
 
 # Response to R 03 10 00 1D EB
-# 03 10 00 1D
+
+# R
+# 03 10 00 1D: Preamble
 # 4: FE: Bitfield for auto on/off, where upper bits are the days bit 0 is auto on/off (disabled)
 # 5: 06: Sunday on hour
 # 6: 11: Sunday off hour (5pm)

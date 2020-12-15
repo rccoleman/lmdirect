@@ -4,7 +4,6 @@ from .const import *
 
 import socket, select
 from threading import Thread
-from textwrap import wrap
 from time import sleep
 
 import logging
