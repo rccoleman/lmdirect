@@ -1,7 +1,5 @@
 import base64
 from Cryptodome.Cipher import AES
-from Cryptodome.Random import get_random_bytes
-from Crypto.Util.Padding import pad, unpad
 from math import ceil
 
 import logging
@@ -19,7 +17,6 @@ class AESCipher:
         plaintext = bytes(plaintext, "utf-8") + bytearray(
             ceil(len(plaintext) / 16) * 16 - len(plaintext)
         )
-        # print("{}: {}".format(plaintext, len(plaintext)))
         ciphertext = cipher.encrypt(plaintext)
         return base64.b64encode(ciphertext)
 
