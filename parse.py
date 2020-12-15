@@ -1,13 +1,23 @@
-import json, codecs, re, logging, sys
+import json
+import codecs
+import re
+import logging
+import sys
 from lmdirect.aescipher import AESCipher
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
 
-if len(sys.argv) == 2:
-    key = sys.argv[1]
-else:
-    print(f"{sys.argv[0]}: <32-byte> Key>")
+try:
+    with open("config.json") as config_file:
+        data = json.load(config_file)
+
+        key = data["key"]
+except KeyError:
+    print("Key not found")
+    exit(1)
+except Exception as err:
+    print(err)
     exit(1)
 
 cipher = AESCipher(key)
@@ -35,7 +45,7 @@ with open("version.json") as json_file:
             print("{}: {} ".format(SOURCE_MAP[ip_src], plaintext[0]), end="")
 
             for i in range(1, len(plaintext), 2):
-                chars = plaintext[i : i + 2]
+                chars = plaintext[i: i + 2]
                 print(
                     codecs.decode(chars, "hex").decode("utf-8")
                     if chars.isdigit() and 30 <= int(chars) <= 39
