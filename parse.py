@@ -2,7 +2,6 @@ import json
 import codecs
 import re
 import logging
-import sys
 from lmdirect.aescipher import AESCipher
 
 _LOGGER = logging.getLogger(__name__)
@@ -13,9 +12,6 @@ try:
         data = json.load(config_file)
 
         key = data["key"]
-except KeyError:
-    print("Key not found")
-    exit(1)
 except Exception as err:
     print(err)
     exit(1)
@@ -45,7 +41,7 @@ with open("version.json") as json_file:
             print("{}: {} ".format(SOURCE_MAP[ip_src], plaintext[0]), end="")
 
             for i in range(1, len(plaintext), 2):
-                chars = plaintext[i: i + 2]
+                chars = plaintext[i : i + 2]
                 print(
                     codecs.decode(chars, "hex").decode("utf-8")
                     if chars.isdigit() and 30 <= int(chars) <= 39

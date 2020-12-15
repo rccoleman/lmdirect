@@ -7,13 +7,6 @@ logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
 
-# if len(sys.argv) == 3:
-#     key = sys.argv[1]
-#     ip_addr = sys.argv[2]
-# else:
-#     print(f"{sys.argv[0]}: <32-byte> Key> <IP address of machine>")
-#     exit(1)
-
 try:
     with open("config.json") as config_file:
         data = json.load(config_file)
