@@ -12,7 +12,7 @@ Using this library is an advanced exercise.  You'll need to do the following:
 * Use the `client_id` & `client_secret` along with the username & password that you set up when you registered the machine with the mobile app to retrieve an OAUTH2 token (password_grant)
 * Use the OAUTH2 token to retrieve your customer info via a `GET` to `https://cms.lamarzocco.io/api/customer` and grab your 32-byte AES-256 key at `data.fleet[0].communicationKey`in the JSON response.
 
-Once you have the key, consruct a file called `config.json` with these contents and put it in the directory along with `test.py`:
+Once you have the key, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
 
 ```
 {
@@ -35,9 +35,9 @@ You'll also see an `INFO` message when the machine at first when the current mac
 
 `INFO:lmdirect:Device is OFF`.
 
-You can hit `1` to turn the machine on, `2` to turn it off, `3` to dump a dict of all the config and status items that it's received from your machine, and any other key to quit.
+You can hit `1` to turn the machine on, `2` to turn it off, `3` to dump a dict of all the config and status items that it's received from your machine, and any other key to quit.  The app requests all status & config information every 5 seconds, so you should see the values change when the state of the machine changes.
 
-Note that the machine only accepts a single connection at a time, so you cannot run this app and the mobile app at the same time.  The second one will block until you close the first instance.
+Note that the machine only accepts a single connection at a time, so you cannot run this app and the mobile app at the same time.  The second one will block until you close the first instance.  This means that you can't experiment by running this app and manipulating settings using the mobile app simultaneously, but you can change settings on the machine itself and see the values update here.
 
 ### Notes
 
