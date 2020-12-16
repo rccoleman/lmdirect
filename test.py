@@ -1,14 +1,17 @@
 import asyncio
 from lmdirect import LMDirect
+import json
+import sys
+import logging
 from lmdirect.cmds import ON, OFF
-import json, sys, logging
 
 logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
 
 
-async def main():
+def read_config():
+    """Read key and machine IP from config file"""
     try:
         with open("config.json") as config_file:
             data = json.load(config_file)
@@ -19,18 +22,21 @@ async def main():
         print(err)
         exit(1)
 
+    return key, ip_addr
+
+
+async def main():
+    """Main execution loop"""
+    loop = asyncio.get_event_loop()
+    key, ip_addr = await loop.run_in_executor(None, read_config)
+
     lmdirect = LMDirect(key)
     await lmdirect.connect(ip_addr)
-
-    loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader(loop=loop)
-    reader_protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: reader_protocol, sys.stdin)
 
     while True:
         try:
             print("\n1 = ON, 2 = OFF, 3 = Status, Other = quit: ")
-            response = (await reader.readline())[:-1].decode("utf-8")
+            response = (await loop.run_in_executor(None, sys.stdin.readline)).rstrip()
 
             if response == "1":
                 await lmdirect.send_cmd(ON)
@@ -44,7 +50,5 @@ async def main():
             break
 
     await lmdirect.close()
-    exit(0)
-
 
 asyncio.run(main())

@@ -3,11 +3,8 @@ from . import cmds as CMD
 from .const import *
 
 import asyncio
-from threading import Thread
-from time import sleep
-
+from functools import partial
 import logging
-
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.INFO)
@@ -26,13 +23,16 @@ class LMDirect:
         """Conmnect to espresso machine"""
         TCP_PORT = 1774
 
+        """Connect to the machine"""
         self.reader, self.writer = await asyncio.open_connection(addr, TCP_PORT)
 
-        """Start listening for responses"""
-        self.response_task = asyncio.create_task(self.response())
+        loop = asyncio.get_event_loop()
+
+        """Start listening for responses & sending status requests"""
+        self.response_task = loop.create_task(self.response())
 
         """Start sending status requests"""
-        self.status_task = asyncio.create_task(self.status())
+        self.status_task = loop.create_task(self.status())
 
     async def close(self):
         """Stop listening for responses and close the socket"""
@@ -49,9 +49,12 @@ class LMDirect:
 
         while self.run:
             encoded_data = await self.reader.read(BUFFER_SIZE)
+
             _LOGGER.debug(encoded_data)
             if encoded_data is not None:
-                plaintext = self.cipher.decrypt(encoded_data[1:-1])
+                loop = asyncio.get_running_loop()
+                fn = partial(self.cipher.decrypt, encoded_data[1:-1])
+                plaintext = await loop.run_in_executor(None, fn)
                 await self.process_data(plaintext)
 
     async def process_data(self, plaintext):
@@ -81,7 +84,7 @@ class LMDirect:
             index = elem.index * 2
             size = elem.size * 2
 
-            value = int(data[index : index + size], 16)
+            value = int(data[index: index + size], 16)
             if any(x in map[elem] for x in ["TEMP", "PREBREWING_K"]):
                 value = value / 10
             elif "AUTO_BITFIELD" in map[elem]:
@@ -102,7 +105,9 @@ class LMDirect:
 
     async def send_cmd(self, cmd):
         """Send command to espresso machine"""
-        ciphertext = "@" + self.cipher.encrypt(cmd).decode("utf-8") + "%"
+        loop = asyncio.get_running_loop()
+        fn = partial(self.cipher.encrypt, cmd)
+        ciphertext = "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
         _LOGGER.debug(ciphertext)
 
         _LOGGER.debug("Before sending: {}".format(ciphertext))
