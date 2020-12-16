@@ -31,10 +31,6 @@ Now, run `python test.py` and you should get a prompt that looks like this:
 
 `1 = ON, 2 = OFF, 3 = Status, Other = quit:`
 
-You'll also see an `INFO` message when the machine at first when the current machine state is detected and whenever it changes after that.  It looks like this:
-
-`INFO:lmdirect:Device is OFF`.
-
 You can hit `1` to turn the machine on, `2` to turn it off, `3` to dump a dict of all the config and status items that it's received from your machine, and any other key to quit.  The app requests all status & config information every 5 seconds, so you should see the values change when the state of the machine changes.
 
 Note that the machine only accepts a single connection at a time, so you cannot run this app and the mobile app at the same time.  The second one will block until you close the first instance.  This means that you can't experiment by running this app and manipulating settings using the mobile app simultaneously, but you can change settings on the machine itself and see the values update here.
