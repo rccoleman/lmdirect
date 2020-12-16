@@ -18,6 +18,12 @@ class LMDirect:
         self._read_response_task = None
         self._poll_status_task = None
         self._current_status = {}
+        self._callback = None
+
+    def register_callback(self, callback):
+        """Register callback for updates"""
+        if callable(callback):
+            self._callback = callback
 
     async def connect(self, addr):
         """Conmnect to espresso machine"""
@@ -60,6 +66,9 @@ class LMDirect:
                 plaintext = await loop.run_in_executor(None, fn)
                 await self.process_data(plaintext)
 
+                if self._callback is not None:
+                    self._callback(self._current_status)
+
     async def process_data(self, plaintext):
         """Process incoming packet"""
 
@@ -88,7 +97,7 @@ class LMDirect:
             size = elem.size * 2
 
             value = int(data[index : index + size], 16)
-            if any(x in map[elem] for x in ["TEMP", "PREBREWING_K"]):
+            if any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
                 value = value / 10
             elif "AUTO_BITFIELD" in map[elem]:
                 for i in range(0, 7):
