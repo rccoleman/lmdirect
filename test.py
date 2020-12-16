@@ -32,6 +32,7 @@ async def main():
 
     lmdirect = LMDirect(key)
     await lmdirect.connect(ip_addr)
+    await lmdirect.create_polling_task()
 
     while True:
         try:
@@ -50,5 +51,6 @@ async def main():
             break
 
     await lmdirect.close()
+
 
 asyncio.run(main())
