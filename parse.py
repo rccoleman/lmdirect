@@ -1,14 +1,15 @@
-import json
-import codecs
-import re
-import logging
+import json, codecs, re, logging
 from lmdirect.aescipher import AESCipher
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
 
+PHONE_IP = "192.168.1.150"
+LM_IP = "192.168.1.215"
+FILE = "config.json"
+
 try:
-    with open("config.json") as config_file:
+    with open(FILE) as config_file:
         data = json.load(config_file)
 
         key = data["key"]
@@ -18,7 +19,7 @@ except Exception as err:
 
 cipher = AESCipher(key)
 
-SOURCE_MAP = {"192.168.1.150": "\nApp", "192.168.1.215": "Machine"}
+SOURCE_MAP = {PHONE_IP: "\nApp", LM_IP: "Machine"}
 
 # Opening JSON file
 with open("version.json") as json_file:

@@ -1,8 +1,5 @@
-import asyncio
 from lmdirect import LMDirect
-import json
-import sys
-import logging
+import asyncio, json, sys, logging
 from lmdirect.cmds import ON, OFF
 
 logging.basicConfig(level=logging.DEBUG)
@@ -37,7 +34,7 @@ async def main():
     lmdirect = LMDirect(key)
     lmdirect.register_callback(update)
     await lmdirect.connect(ip_addr)
-    # await lmdirect.create_polling_task()
+    await lmdirect.create_polling_task()
 
     while True:
         try:
