@@ -37,7 +37,7 @@ async def main():
     lmdirect = LMDirect(key)
     lmdirect.register_callback(update)
     await lmdirect.connect(ip_addr)
-    # await lmdirect.create_polling_task()
+    await lmdirect.create_polling_task()
 
     while True:
         try:
