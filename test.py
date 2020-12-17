@@ -25,13 +25,19 @@ def read_config():
     return key, ip_addr
 
 
+def update(data):
+    print("Updated: {}".format(data))
+
+
 async def main():
     """Main execution loop"""
     loop = asyncio.get_event_loop()
     key, ip_addr = await loop.run_in_executor(None, read_config)
 
     lmdirect = LMDirect(key)
+    lmdirect.register_callback(update)
     await lmdirect.connect(ip_addr)
+    # await lmdirect.create_polling_task()
 
     while True:
         try:
@@ -50,5 +56,6 @@ async def main():
             break
 
     await lmdirect.close()
+
 
 asyncio.run(main())

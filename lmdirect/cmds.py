@@ -50,7 +50,7 @@ class Element:
 # 04 D8: Steam Temp (124.0C)
 # B6
 
-SHORT_MAP = {Element(4, 2): "COFFEE_TEMP", Element(6, 2): "STEAM_TEMP"}
+SHORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 
 # R
 # 40 00 00 20: Preamble
@@ -63,7 +63,7 @@ SHORT_MAP = {Element(4, 2): "COFFEE_TEMP", Element(6, 2): "STEAM_TEMP"}
 # 70
 
 D8_MAP = {
-    Element(27, 1): "POWER",
+    Element(27, 1): "MACHINE_STATUS",
     # Element(32, 2): "COFFEE_TEMP",
     # Element(34, 2): "STEAM_TEMP",
 }
@@ -91,9 +91,8 @@ D8_MAP = {
 # 35: 66: Degrees f/c
 
 E9_MAP = {
-    Element(0): "STBY_TIMER",
-    Element(11, 2): "COFFEE_TEMP_SET",
-    Element(13, 2): "STEAM_TEMP_SET",
+    Element(11, 2): "TSET_COFFEE",
+    Element(13, 2): "TSET_STEAM",
     Element(15): "ENABLE_PREBREWING",
     Element(16): "TON_PREBREWING_K1",
     Element(17): "TON_PREBREWING_K2",
@@ -109,7 +108,6 @@ E9_MAP = {
     Element(30, 2): "DOSE_K4",
     Element(32, 2): "DOSE_K5",
     Element(34): "DOSE_TEA",
-    # Element(35): "T_UNITS",
 }
 
 # Response to R 03 10 00 1D EB
