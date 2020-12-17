@@ -1,8 +1,5 @@
-import asyncio
 from lmdirect import LMDirect
-import json
-import sys
-import logging
+import asyncio, json, sys, logging
 from lmdirect.cmds import ON, OFF
 
 logging.basicConfig(level=logging.DEBUG)
