@@ -1,7 +1,7 @@
 from setuptools import setup
 
-with open("README.md", "r") as f:
-    readme = f.read()
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
 setup(
     name="lmdirect",
@@ -21,6 +21,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
+    python_requires='>=3.8',
     packages=["lmdirect"],
     install_requires=["pycryptodome>=3.9.9"],
     package_data={
