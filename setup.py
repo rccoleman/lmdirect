@@ -7,7 +7,7 @@ setup(
     name="lmdirect",
     version="v0.3",
     description="A Python implementation of the local La Marzocco API",
-    long_description=readme,
+    long_description=long_description,
     url="https://github.com/rccoleman/lmdirect",
     author="Rob Coleman",
     author_email="rccoleman@gmail.com",
