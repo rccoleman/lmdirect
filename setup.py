@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="lmdirect",
-    version="v0.1",
+    version="v0.3",
     description="A Python implementation of the local La Marzocco API",
     long_description=readme,
     url="https://github.com/rccoleman/lmdirect",
