@@ -11,30 +11,35 @@ _LOGGER.setLevel(logging.INFO)
 
 
 class LMDirect:
-    def __init__(self, key):
+    def __init__(self, key, ip_addr):
         """Init LMDirect"""
-        self._run = True
+        self._run = False
         self._cipher = AESCipher(key)
         self._read_response_task = None
-        self._poll_status_task = None
         self._current_status = {}
         self._callback = None
+        self._responses_waiting = []
+        self._ip_addr = ip_addr
+        self._reader = self._writer = None
 
     def register_callback(self, callback):
         """Register callback for updates"""
         if callable(callback):
             self._callback = callback
 
-    async def connect(self, addr):
+    async def connect(self):
         """Conmnect to espresso machine"""
         TCP_PORT = 1774
 
         """Connect to the machine"""
-        self.reader, self.writer = await asyncio.open_connection(addr, TCP_PORT)
+        self._reader, self._writer = await asyncio.open_connection(
+            self._ip_addr, TCP_PORT
+        )
 
-        loop = asyncio.get_event_loop()
+        self._run = True
 
         """Start listening for responses & sending status requests"""
+        loop = asyncio.get_event_loop()
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
         )
@@ -42,32 +47,30 @@ class LMDirect:
     async def close(self):
         """Stop listening for responses and close the socket"""
         self._run = False
-        tasks = [self._read_response_task]
-
-        if self._poll_status_task:
-            tasks.append(self._poll_status_task)
-
-        await asyncio.gather(*tasks)
 
         """Close the connection"""
-        self.writer.close()
+        if self._writer is not None:
+            self._writer.close()
+        self._reader = self._writer = None
 
     async def read_response_task(self):
         """Start thread to receive responses"""
         BUFFER_SIZE = 1000
 
         while self._run:
-            encoded_data = await self.reader.read(BUFFER_SIZE)
-
-            _LOGGER.debug(encoded_data)
+            encoded_data = await self._reader.read(BUFFER_SIZE)
             if encoded_data is not None:
                 loop = asyncio.get_event_loop()
                 fn = partial(self._cipher.decrypt, encoded_data[1:-1])
                 plaintext = await loop.run_in_executor(None, fn)
-                await self.process_data(plaintext)
+                finished_queue = await self.process_data(plaintext)
 
                 if self._callback is not None:
-                    self._callback(self._current_status)
+                    await self._callback(self._current_status, finished_queue)
+                    if finished_queue:
+                        break
+
+        await self.close()
 
     async def process_data(self, plaintext):
         """Process incoming packet"""
@@ -79,17 +82,23 @@ class LMDirect:
         _LOGGER.debug("Preamble={}, data={}".format(preamble, data))
 
         """If it's just a confirmation, skip it"""
-        if preamble == CMD.WRITE_ON_OFF_PREAMBLE:
-            _LOGGER.info(
-                "Short status: {}".format(
-                    "Good" if CMD.RESPONSE_GOOD in data else "Bad"
-                )
-            )
-            return
+        if preamble == CMD.RESP_WRITE_ON_OFF_PREAMBLE:
+            if CMD.RESPONSE_GOOD not in data:
+                cmd = list(CMD.CMD_RESP_MAP.keys())[
+                    list(CMD.CMD_RESP_MAP.values()).index(preamble)
+                ]
+                _LOGGER.error("Command Failed: {} {}".format(cmd, data))
+                """No effect on response queue"""
+                return False
 
-        if any(preamble in x for x in CMD.PREAMBLES):
-            await self.populate_items(data, CMD.RESP_MAP[preamble])
-            _LOGGER.debug(self._current_status)
+        await self.populate_items(data, CMD.RESP_MAP[preamble])
+        _LOGGER.debug(self._current_status)
+
+        if preamble in self._responses_waiting:
+            self._responses_waiting.remove(preamble)
+            if not len(self._responses_waiting):
+                _LOGGER.debug("Recevied all responses")
+                return True
 
     async def populate_items(self, data, map):
         for elem in map:
@@ -112,30 +121,27 @@ class LMDirect:
         """Return a dict of all the properties that have been received"""
         return self._current_status
 
-    async def create_polling_task(self):
-        """Start a polling task"""
-        self._poll_status_task = asyncio.get_event_loop().create_task(
-            self.poll_status_task(), name="Request Status Task"
-        )
-
-    async def poll_status_task(self):
-        """Send periodic status requests"""
-        while self._run:
-            await self.request_status()
-            await asyncio.sleep(5)
-
     async def request_status(self):
-        await self.send_cmd(CMD.STATUS)
-        await self.send_cmd(CMD.CONFIG)
-        await self.send_cmd(CMD.AUTO_SCHED)
+        """Request all status elements"""
+        await self.send_cmd(CMD.CMD_D8_STATUS)
+        await self.send_cmd(CMD.CMD_E9_CONFIG)
+        await self.send_cmd(CMD.CMD_EB_AUTO_SCHED)
 
     async def send_cmd(self, cmd):
         """Send command to espresso machine"""
+
+        """Connect if we don't have an active connection"""
+        if self._writer is None:
+            await self.connect()
+
         loop = asyncio.get_event_loop()
         fn = partial(self._cipher.encrypt, cmd)
         ciphertext = "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
         _LOGGER.debug(ciphertext)
 
         _LOGGER.debug("Before sending: {}".format(ciphertext))
-        self.writer.write(bytes(ciphertext, "utf-8"))
-        await self.writer.drain()
+        self._writer.write(bytes(ciphertext, "utf-8"))
+        await self._writer.drain()
+
+        """Remember that we're waiting for a response"""
+        self._responses_waiting.append(CMD.CMD_RESP_MAP[cmd])
