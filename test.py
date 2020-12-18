@@ -1,58 +1,84 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
-from lmdirect.cmds import ON, OFF
+import lmdirect.cmds as CMD
 
 logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
+_LOGGER.setLevel(logging.INFO)
 
 
-def read_config():
-    """Read key and machine IP from config file"""
-    try:
-        with open("config.json") as config_file:
-            data = json.load(config_file)
+class lmtest:
+    def __init__(self):
+        self._run = True
 
-            key = data["key"]
-            ip_addr = data["ip_addr"]
-    except Exception as err:
-        print(err)
-        exit(1)
-
-    return key, ip_addr
-
-
-def update(data):
-    print("Updated: {}".format(data))
-
-
-async def main():
-    """Main execution loop"""
-    loop = asyncio.get_event_loop()
-    key, ip_addr = await loop.run_in_executor(None, read_config)
-
-    lmdirect = LMDirect(key)
-    lmdirect.register_callback(update)
-    await lmdirect.connect(ip_addr)
-    await lmdirect.create_polling_task()
-
-    while True:
+    def read_config(self):
+        """Read key and machine IP from config file"""
         try:
-            print("\n1 = ON, 2 = OFF, 3 = Status, Other = quit: ")
-            response = (await loop.run_in_executor(None, sys.stdin.readline)).rstrip()
+            with open("config.json") as config_file:
+                data = json.load(config_file)
 
-            if response == "1":
-                await lmdirect.send_cmd(ON)
-            elif response == "2":
-                await lmdirect.send_cmd(OFF)
-            elif response == "3":
-                print(lmdirect.current_status)
-            else:
+                key = data["key"]
+                ip_addr = data["ip_addr"]
+        except Exception as err:
+            print(err)
+            exit(1)
+
+        return key, ip_addr
+
+    async def update(self, data, finished):
+        _LOGGER.debug(
+            "Updated: {}, {}".format(data, "Finished" if finished else "Waiting")
+        )
+
+    async def poll_status_task(self):
+        """Send periodic status requests"""
+        while self._run:
+            await self.lmdirect.request_status()
+            await asyncio.sleep(10)
+
+    async def close(self):
+        await self.lmdirect.close()
+
+    async def connect(self):
+        await self.lmdirect.connect()
+
+    async def main(self):
+        """Main execution loop"""
+        loop = asyncio.get_event_loop()
+        key, ip_addr = await loop.run_in_executor(None, self.read_config)
+
+        self.lmdirect = LMDirect(key, ip_addr)
+        self.lmdirect.register_callback(self.update)
+
+        self._run = True
+
+        self._poll_status_task = asyncio.get_event_loop().create_task(
+            self.poll_status_task(), name="Request Status Task"
+        )
+
+        while True:
+            try:
+                print("\n1 = ON, 2 = OFF, 3 = Status, Other = quit: ")
+                response = (
+                    await loop.run_in_executor(None, sys.stdin.readline)
+                ).rstrip()
+
+                if response == "1":
+                    await self.lmdirect.send_cmd(CMD.CMD_ON)
+                elif response == "2":
+                    await self.lmdirect.send_cmd(CMD.CMD_OFF)
+                elif response == "3":
+                    print(self.lmdirect.current_status)
+                else:
+                    break
+            except KeyboardInterrupt:
                 break
-        except KeyboardInterrupt:
-            break
 
-    await lmdirect.close()
+        self._run = False
+        await asyncio.gather(*[self._poll_status_task])
+
+        await self.lmdirect.close()
 
 
-asyncio.run(main())
+lm = lmtest()
+asyncio.run(lm.main())
