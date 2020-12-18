@@ -66,7 +66,7 @@ class LMDirect:
                 finished_queue = await self.process_data(plaintext)
 
                 if self._callback is not None:
-                    await self._callback(self._current_status, finished_queue)
+                    self._callback(self._current_status, finished_queue)
                     if finished_queue:
                         break
 

@@ -25,7 +25,7 @@ class lmtest:
 
         return key, ip_addr
 
-    async def update(self, data, finished):
+    def update(self, data, finished):
         _LOGGER.debug(
             "Updated: {}, {}".format(data, "Finished" if finished else "Waiting")
         )
