@@ -78,8 +78,8 @@ SHORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 
 D8_MAP = {
     Element(27, 1): "MACHINE_STATUS",
-    # Element(32, 2): "COFFEE_TEMP",
-    # Element(34, 2): "STEAM_TEMP",
+    Element(32, 2): "TEMP_COFFEE",
+    Element(34, 2): "TEMP_STEAM",
 }
 
 # R
