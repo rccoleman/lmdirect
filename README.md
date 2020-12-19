@@ -9,15 +9,17 @@ This is a prototype library for interacting with the local network API of a La M
 
 Using this library is an advanced exercise.  You'll need to do the following:
 * Find the `client_id` and `client_secret` for your machine by sniffing the network traffic while operating the mobile app (`mitmproxy` is good for this).  You'll need to capture a token request to https://cms.lamarzocco.io/oauth/v2/token and find the `client_id` and `client_secret` in the request.
-* Use the `client_id` & `client_secret` along with the username & password that you set up when you registered the machine with the mobile app to retrieve an OAUTH2 token (password_grant)
-* Use the OAUTH2 token to retrieve your customer info via a `GET` to `https://cms.lamarzocco.io/api/customer` and grab your 32-byte AES-256 key at `data.fleet[0].communicationKey`in the JSON response.
+* Find the username & password that you used to register with La Marzocco when you set up remote access
 
-Once you have the key, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
+Once you have the client ID, client secret, username, and passowrd, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
 
 ```
 {
-    "key": "MyUnicodeEncodedKey",
-    "ip_addr": "MyIPAddress"
+    "ip_addr": "ip_address",
+    "client_id": "a_long_string",
+    "client_secret": "another_long_string",
+    "username": "email@address.com",
+    "password": "password"
 }
 ```
 
@@ -29,7 +31,7 @@ Now, run `python test.py` and you should get a prompt that looks like this:
 
 You can hit `1` to turn the machine on, `2` to turn it off, `3` to dump a dict of all the config and status items that it's received from your machine, and any other key to quit.  The app requests all status & config information every 5 seconds, so you should see the values change when the state of the machine changes.
 
-Note that the machine only accepts a single connection at a time, so you cannot run this app and the mobile app at the same time.  The second one will block until you close the first instance.  This means that you can't experiment by running this app and manipulating settings using the mobile app simultaneously, but you can change settings on the machine itself and see the values update here.
+The machine can only accept a single connection at a time, but the library keeps the connection open long enough only to send commands and receive the responses.  Both the mobile app and this library will attempt to reconnect if the port is in use, but you may need to wait a bit while using the mobile app for it to try again.
 
 ### Notes
 
