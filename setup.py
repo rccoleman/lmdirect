@@ -1,11 +1,11 @@
 import setuptools
-
+  
 with open("README.md", "r") as f:
     readme = f.read()
 
 setuptools.setup(
     name="lmdirect",
-    version="v0.3",
+    version="0.1",
     description="A Python implementation of the local La Marzocco API",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -23,7 +23,7 @@ setuptools.setup(
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     packages=setuptools.find_packages(),
-    install_requires=["pycryptodome>=3.9.9"],
+    install_requires=["pycryptodome>=3.9.9", "httpx>=0.16.1"],
     package_data={
         "license": ["LICENSE"],
     },

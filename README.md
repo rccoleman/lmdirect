@@ -21,10 +21,6 @@ Once you have the key, construct a file called `config.json` with these contents
 }
 ```
 
-Create and activate a Python venv and install the crypto library that I'm using like this:
-
-`pip install pycryptodomex`
-
 ### Running the test app
 
 Now, run `python test.py` and you should get a prompt that looks like this:
