@@ -1,6 +1,7 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
 import lmdirect.cmds as CMD
+from lmdirect.const import *
 
 logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
@@ -17,13 +18,19 @@ class lmtest:
             with open("config.json") as config_file:
                 data = json.load(config_file)
 
-                key = data["key"]
-                ip_addr = data["ip_addr"]
         except Exception as err:
             print(err)
             exit(1)
 
-        return key, ip_addr
+        creds = {
+            IP_ADDR: data["ip_addr"],
+            CLIENT_ID: data["client_id"],
+            CLIENT_SECRET: data["client_secret"],
+            USERNAME: data["username"],
+            PASSWORD: data["password"],
+        }
+
+        return creds
 
     def update(self, data, finished):
         _LOGGER.debug(
@@ -45,9 +52,9 @@ class lmtest:
     async def main(self):
         """Main execution loop"""
         loop = asyncio.get_event_loop()
-        key, ip_addr = await loop.run_in_executor(None, self.read_config)
+        creds = await loop.run_in_executor(None, self.read_config)
 
-        self.lmdirect = LMDirect(key, ip_addr)
+        self.lmdirect = LMDirect(creds)
         self.lmdirect.register_callback(self.update)
 
         self._run = True
