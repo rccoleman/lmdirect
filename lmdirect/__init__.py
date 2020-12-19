@@ -260,7 +260,7 @@ class LMDirect:
         self._start_time = datetime.now()
 
 
-def handle_exception(self, loop, context):
+def handle_exception(loop, context):
     _LOGGER.error("Caught exception={}".format(context))
 
 
