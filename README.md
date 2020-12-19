@@ -8,8 +8,7 @@ This is a prototype library for interacting with the local network API of a La M
 ### Preparation & Installation
 
 Using this library is an advanced exercise.  You'll need to do the following:
-* Find the `client_id` and `client_secret` for your machine by sniffing the network traffic while operating the mobile app (`mitmproxy` is good for this).  You'll need to capture a token request to https://cms.lamarzocco.io/oauth/v2/token and find the `client_id` and `client_secret` in the request.
-* Find the username & password that you used to register with La Marzocco when you set up remote access.  The username is most likely the email address that you used for registration.
+* Find the `client_id` and `client_secret` for your machine by following [these instructions](https://github.com/rccoleman/lmdirect/blob/master/Credentials.md).  You'll need the username & password that you used to register with La Marzocco when you set up remote access, and the username is most likely the email address that you used for registration.
 
 Once you have the client ID, client secret, username, and passowrd, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
 
