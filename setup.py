@@ -1,11 +1,11 @@
 import setuptools
-  
+
 with open("README.md", "r") as f:
     readme = f.read()
 
 setuptools.setup(
     name="lmdirect",
-    version="0.1.0",
+    version="0.1.0-1",
     description="A Python implementation of the local La Marzocco API",
     long_description=readme,
     long_description_content_type="text/markdown",
