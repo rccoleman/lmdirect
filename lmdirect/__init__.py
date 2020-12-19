@@ -8,9 +8,7 @@ import asyncio, logging, time
 from functools import partial
 from datetime import timedelta, datetime
 
-
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 
 class LMDirect:
@@ -23,7 +21,6 @@ class LMDirect:
         self._callback = None
         self._responses_waiting = []
         self._reader = self._writer = None
-        self._keepalive = False
 
         self._creds = creds
         self._key = None
@@ -103,9 +100,13 @@ class LMDirect:
 
         """Start listening for responses & sending status requests"""
         loop = asyncio.get_event_loop()
+        loop.set_exception_handler(handle_exception)
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
         )
+
+        """Reap the results and any any exceptions"""
+        loop.create_task(self.reaper(), name="Reaper")
 
         _LOGGER.debug("Finished Connecting")
         return True
@@ -118,6 +119,16 @@ class LMDirect:
         if self._writer is not None:
             self._writer.close()
         self._reader = self._writer = None
+
+    async def reaper(self):
+        _LOGGER.debug("Starting reaper")
+        try:
+            results = await asyncio.gather(*[self._read_response_task])
+        except Exception as err:
+            _LOGGER.error(f"Exception in read_response_task: {err}")
+            await self.close()
+
+        _LOGGER.debug("Finished gathering")
 
     async def read_response_task(self):
         """Start thread to receive responses"""
@@ -156,8 +167,13 @@ class LMDirect:
         """Separate the preamble from the data"""
         data = plaintext[1:]
         preamble = data[:8]
+        finished = not len(self._responses_waiting)
 
         _LOGGER.debug("Preamble={}, data={}".format(preamble, data))
+
+        if preamble not in CMD.PREAMBLES:
+            _LOGGER.debug("Ignoring response: {}".format(plaintext))
+            return finished
 
         """If it's just a confirmation, skip it"""
         if preamble == CMD.RESP_WRITE_ON_OFF_PREAMBLE:
@@ -166,16 +182,18 @@ class LMDirect:
                     list(CMD.CMD_RESP_MAP.values()).index(preamble)
                 ]
                 _LOGGER.error("Command Failed: {} {}".format(cmd, data))
-        else:
+        elif preamble in CMD.RESP_MAP:
             await self.populate_items(data, CMD.RESP_MAP[preamble])
 
         if preamble in self._responses_waiting:
             self._responses_waiting.remove(preamble)
-            if not len(self._responses_waiting):
-                _LOGGER.debug("Recevied all responses")
-                return True
+            finished = not len(self._responses_waiting)
+            if finished:
+                _LOGGER.debug("Received all responses")
             else:
                 _LOGGER.debug("Waiting for {}".format(self._responses_waiting))
+
+        return finished
 
     async def populate_items(self, data, map):
         for elem in map:
@@ -240,6 +258,10 @@ class LMDirect:
 
         """Note when the command was sent"""
         self._start_time = datetime.now()
+
+
+def handle_exception(self, loop, context):
+    _LOGGER.error("Caught exception={}".format(context))
 
 
 class AuthFail(BaseException):
