@@ -1,13 +1,14 @@
-from setuptools import setup
+import setuptools
+  
+with open("README.md", "r") as f:
+    readme = f.read()
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
-
-setup(
+setuptools.setup(
     name="lmdirect",
-    version="v0.3",
+    version="0.1",
     description="A Python implementation of the local La Marzocco API",
-    long_description=long_description,
+    long_description=readme,
+    long_description_content_type="text/markdown",
     url="https://github.com/rccoleman/lmdirect",
     author="Rob Coleman",
     author_email="rccoleman@gmail.com",
@@ -21,9 +22,8 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
-    python_requires='>=3.8',
-    packages=["lmdirect"],
-    install_requires=["pycryptodome>=3.9.9"],
+    packages=setuptools.find_packages(),
+    install_requires=["pycryptodome>=3.9.9", "httpx>=0.16.1"],
     package_data={
         "license": ["LICENSE"],
     },

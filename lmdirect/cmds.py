@@ -39,6 +39,7 @@ STATUS_REQUESTS = [
     RESP_D8_STATUS_PREAMBLE,
     RESP_E9_CONFIG_PREAMBLE,
     RESP_EB_AUTOSCHED_PREAMBLE,
+    RESP_SHORT_PREAMBLE,
 ]
 
 RESPONSE_GOOD = "OK"
@@ -78,8 +79,8 @@ SHORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 
 D8_MAP = {
     Element(27, 1): "MACHINE_STATUS",
-    Element(32, 2): "TEMP_COFFEE",
-    Element(34, 2): "TEMP_STEAM",
+    # Element(32, 2): "TEMP_COFFEE",
+    # Element(34, 2): "TEMP_STEAM",
 }
 
 # R
