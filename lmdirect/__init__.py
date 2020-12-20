@@ -61,11 +61,11 @@ class LMDirect:
 
         cust_info = await client.get(CUSTOMER_URL)
         if cust_info is not None:
-            self._key = cust_info.json()["data"]["fleet"][0]["communicationKey"]
-            self._serial_number = cust_info.json()["data"]["fleet"][0]["machine"][
-                "serialNumber"
-            ]
-            self._machine_name = cust_info.json()["data"]["fleet"][0]["name"]
+            fleet = cust_info.json()["data"]["fleet"][0]
+            self._key = fleet["communicationKey"]
+            self._serial_number = fleet["machine"]["serialNumber"]
+            self._machine_name = fleet["name"]
+            self._model_name = fleet["machine"]["model"]["name"]
             self._cipher = AESCipher(self._key)
 
         """Done with the cloud API"""
@@ -225,6 +225,11 @@ class LMDirect:
     def serial_number(self):
         """Return serial number"""
         return self._serial_number
+
+    @property
+    def model_name(self):
+        """Return model name"""
+        return self._model_name
 
     async def request_status(self):
         """Request all status elements"""
