@@ -23,7 +23,7 @@ setuptools.setup(
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     packages=setuptools.find_packages(),
-    install_requires=["pycryptodome>=3.9.9", "httpx>=0.16.1"],
+    install_requires=["pycryptodome>=3.9.9", "httpx>=0.16.1", "authlib>=0.15.2"],
     package_data={
         "license": ["LICENSE"],
     },
