@@ -92,10 +92,10 @@ class lmtest:
                     print(self.lmdirect.current_status)
                 elif option == "3":
                     if arg is not None:
-                        await self.lmdirect.set_coffee_temp(float(arg))
+                        await self.lmdirect.set_coffee_temp(arg)
                 elif option == "4":
                     if arg is not None:
-                        await self.lmdirect.set_steam_temp(float(arg))
+                        await self.lmdirect.set_steam_temp(arg)
                 elif option == "5":
                     if arg is not None:
                         await self.lmdirect.send_prebrewing_enable(arg == "on")

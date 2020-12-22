@@ -56,10 +56,18 @@ class LMDirect(Connection):
 
     async def set_coffee_temp(self, temp):
         """Set the coffee boiler temp in Celcius"""
+
+        if isinstance(temp, str):
+            temp = float(temp)
+
         await self._send_msg(MSGS[Msg.SET_COFFEE_TEMP], value=int(temp * 10), size=2)
 
     async def set_steam_temp(self, temp):
         """Set the steam boiler temp in Celcius"""
+
+        if isinstance(temp, str):
+            temp = float(temp)
+
         await self._send_msg(MSGS[Msg.SET_STEAM_TEMP], value=int(temp * 10), size=2)
 
     async def set_prebrewing_enable(self, enable):

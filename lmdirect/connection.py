@@ -136,7 +136,6 @@ class Connection:
             _LOGGER.error(f"Exception in read_response_task: {err}")
 
         await self._close()
-
         self._read_response_task = None
 
         _LOGGER.debug("Finished reaping")
@@ -159,7 +158,7 @@ class Connection:
                 if not plaintext:
                     continue
 
-                finished_queue = await self.process_data(plaintext)
+                finished_queue = await self._process_data(plaintext)
 
                 """Call the callback"""
                 if self._callback is not None:
@@ -173,7 +172,7 @@ class Connection:
                     self._responses_waiting = []
                     break
 
-    async def process_data(self, plaintext):
+    async def _process_data(self, plaintext):
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
@@ -184,6 +183,7 @@ class Connection:
 
         _LOGGER.debug("Message={}, Data={}".format(msg, data))
 
+        """Find the first matching item or returns None"""
         msg_id = next((x for x in MSGS if MSGS[x].msg == msg), None)
 
         if msg_id is None:
@@ -193,7 +193,7 @@ class Connection:
             cur_msg = MSGS[msg_id]
 
         if cur_msg.map is not None:
-            await self.populate_items(data, cur_msg)
+            await self._populate_items(data, cur_msg)
 
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
@@ -205,7 +205,7 @@ class Connection:
 
         return finished
 
-    async def populate_items(self, data, cur_msg):
+    async def _populate_items(self, data, cur_msg):
         """process all the fields"""
         map = cur_msg.map
         for elem in map:
@@ -242,13 +242,17 @@ class Connection:
                 continue
             self._current_status[map[elem]] = value
 
-    def checksum(self, buffer):
-        """Compute check byte"""
-        buffer = bytes(buffer, "utf-8")
-        return "%0.2X" % (sum(buffer) % 256)
-
     async def _send_msg(self, msg, value=None, size=0):
         """Send command to espresso machine"""
+
+        def convert_to_ascii(value, size):
+            """Convert an integer value to ASCII-encoded hex"""
+            return ("%0" + str(size * 2) + "X") % value
+
+        def checksum(buffer):
+            """Compute check byte"""
+            buffer = bytes(buffer, "utf-8")
+            return "%0.2X" % (sum(buffer) % 256)
 
         _LOGGER.debug("Sending {} with {}".format(msg.msg, value))
 
@@ -262,10 +266,10 @@ class Connection:
         plaintext = msg.msg_type + msg.msg
 
         if value is not None:
-            plaintext += self.convert_to_ascii(value, size)
+            plaintext += convert_to_ascii(value, size)
 
-        plaintext += self.checksum(plaintext)
-        print("Sending {}".format(plaintext))
+        """Add the check byte"""
+        plaintext += checksum(plaintext)
 
         loop = asyncio.get_event_loop()
         fn = partial(self._cipher.encrypt, plaintext)
@@ -280,10 +284,6 @@ class Connection:
 
         """Note when the command was sent"""
         self._start_time = datetime.now()
-
-    def convert_to_ascii(self, value, size):
-        """Convert an integer value to ASCII-encoded hex"""
-        return ("%0" + str(size * 2) + "X") % value
 
 
 class AuthFail(BaseException):
