@@ -177,8 +177,9 @@ class Connection:
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
-        data = plaintext[1:]
-        msg = data[:8]
+        raw_data = plaintext[1:]
+        msg = raw_data[:8]
+        data = raw_data[8:]
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug("Message={}, Data={}".format(msg, data))
@@ -186,7 +187,7 @@ class Connection:
         msg_id = next((x for x in MSGS if MSGS[x].msg == msg), None)
 
         if msg_id is None:
-            _LOGGER.debug("Ignoring response: {}".format(plaintext))
+            _LOGGER.error("Unexpected response: {}".format(plaintext))
             return finished
         else:
             cur_msg = MSGS[msg_id]
@@ -223,6 +224,14 @@ class Connection:
                     _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
             elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
                 value = value / 10
+            elif "FIRMWARE" in map[elem]:
+                value = "%0.2f" % (value / 100)
+            elif "SER_NUM" in map[elem]:
+                value = "".join(
+                    [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
+                )
+                value = value.partition("\0")[0]
+
             elif "AUTO_BITFIELD" in map[elem]:
                 for i in range(0, 7):
                     setting = ENABLED if value & 0x01 else DISABLED

@@ -44,6 +44,8 @@ class LMDirect(Connection):
         await self.send_msg(MSGS[Msg.STATUS])
         await self.send_msg(MSGS[Msg.CONFIG])
         await self.send_msg(MSGS[Msg.AUTO_SCHED])
+        # await self.send_msg(MSGS[Msg.SER_NUM])
+        await self.send_msg(MSGS[Msg.DATETIME])
 
         """Also wait for current temp"""
         self._responses_waiting.append(MSGS[Msg.TEMP_REPORT].msg)
