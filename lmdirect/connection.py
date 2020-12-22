@@ -222,6 +222,8 @@ class Connection:
             if "RESULT" in map[elem]:
                 if Msg.RESPONSE_GOOD not in value:
                     _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
+                else:
+                    _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
             elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
                 value = value / 10
             elif "FIRMWARE" in map[elem]:
@@ -245,10 +247,10 @@ class Connection:
         buffer = bytes(buffer, "utf-8")
         return "%0.2X" % (sum(buffer) % 256)
 
-    async def _send_msg(self, msg, data=None):
+    async def _send_msg(self, msg, value=None, size=0):
         """Send command to espresso machine"""
 
-        _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
+        _LOGGER.debug("Sending {} with {}".format(msg.msg, value))
 
         """Connect if we don't have an active connection"""
         if self._writer is None:
@@ -259,10 +261,11 @@ class Connection:
         """Add read/write and check bytes"""
         plaintext = msg.msg_type + msg.msg
 
-        if data is not None:
-            plaintext += data
+        if value is not None:
+            plaintext += self.convert_to_ascii(value, size)
 
         plaintext += self.checksum(plaintext)
+        print("Sending {}".format(plaintext))
 
         loop = asyncio.get_event_loop()
         fn = partial(self._cipher.encrypt, plaintext)
@@ -277,6 +280,10 @@ class Connection:
 
         """Note when the command was sent"""
         self._start_time = datetime.now()
+
+    def convert_to_ascii(self, value, size):
+        """Convert an integer value to ASCII-encoded hex"""
+        return ("%0" + str(size * 2) + "X") % value
 
 
 class AuthFail(BaseException):

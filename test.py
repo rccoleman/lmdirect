@@ -56,6 +56,10 @@ class lmtest:
     async def connect(self):
         await self.lmdirect.connect()
 
+    def check_args(self, resp):
+        array = resp.split()
+        return array[0] if len(array) else None, array[1] if len(array) > 1 else None
+
     async def main(self):
         """Main execution loop"""
         loop = asyncio.get_event_loop()
@@ -72,17 +76,29 @@ class lmtest:
 
         while True:
             try:
-                print("\n1 = ON, 2 = OFF, 3 = Status, Other = quit: ")
+                print(
+                    "\n1 = Power, 2 = Status, 3 = Set Coffee Temp, 4 = Set Steam Temp, 5, Set Prebrewing Enable, Other = quit: "
+                )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
                 ).rstrip()
 
-                if response == "1":
-                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_ON_DATA)
-                elif response == "2":
-                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_OFF_DATA)
-                elif response == "3":
+                option, arg = self.check_args(response)
+
+                if option == "1":
+                    if arg is not None:
+                        await self.lmdirect.set_power(arg == "on")
+                elif option == "2":
                     print(self.lmdirect.current_status)
+                elif option == "3":
+                    if arg is not None:
+                        await self.lmdirect.set_coffee_temp(float(arg))
+                elif option == "4":
+                    if arg is not None:
+                        await self.lmdirect.set_steam_temp(float(arg))
+                elif option == "5":
+                    if arg is not None:
+                        await self.lmdirect.send_prebrewing_enable(arg == "on")
                 else:
                     break
             except KeyboardInterrupt:

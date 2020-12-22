@@ -41,17 +41,36 @@ class LMDirect(Connection):
         """Request all status elements"""
 
         _LOGGER.debug("Requesting status")
-        await self.send_msg(MSGS[Msg.STATUS])
-        await self.send_msg(MSGS[Msg.CONFIG])
-        await self.send_msg(MSGS[Msg.AUTO_SCHED])
-        # await self.send_msg(MSGS[Msg.SER_NUM])
-        await self.send_msg(MSGS[Msg.DATETIME])
+        await self.send_msg(MSGS[Msg.GET_STATUS])
+        await self.send_msg(MSGS[Msg.GET_CONFIG])
+        await self.send_msg(MSGS[Msg.GET_AUTO_SCHED])
+        # await self.send_msg(MSGS[Msg.GET_SER_NUM])
+        await self.send_msg(MSGS[Msg.GET_DATETIME])
 
         """Also wait for current temp"""
-        self._responses_waiting.append(MSGS[Msg.TEMP_REPORT].msg)
+        self._responses_waiting.append(MSGS[Msg.GET_TEMP_REPORT].msg)
 
-    async def send_msg(self, msg, data=None):
-        await self._send_msg(msg, data)
+    async def set_power(self, power):
+        """Send power on or power off commands"""
+        await self._send_msg(MSGS[Msg.SET_POWER], value=0x01 if power else 0x00, size=1)
+
+    async def set_coffee_temp(self, temp):
+        """Set the coffee boiler temp in Celcius"""
+        await self._send_msg(MSGS[Msg.SET_COFFEE_TEMP], value=int(temp * 10), size=2)
+
+    async def set_steam_temp(self, temp):
+        """Set the steam boiler temp in Celcius"""
+        await self._send_msg(MSGS[Msg.SET_STEAM_TEMP], value=int(temp * 10), size=2)
+
+    async def set_prebrewing_enable(self, enable):
+        """Turn prebrewing on or off"""
+        await self._send_msg(
+            MSGS[Msg.SET_PREBREWING_ENABLE], value=0x01 if enable else 0x00, size=1
+        )
+
+    async def send_msg(self, msg, data=None, size=0):
+        """Send a message"""
+        await self._send_msg(msg, data, size)
 
     async def close(self):
         """Wait for the read task to exit"""
