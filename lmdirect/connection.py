@@ -10,7 +10,7 @@ from functools import partial
 
 _LOGGER = logging.getLogger(__name__)
 
-from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP
+from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
 from .const import *
 import logging
 
@@ -114,7 +114,6 @@ class Connection:
 
         """Start listening for responses & sending status requests"""
         loop = asyncio.get_event_loop()
-        loop.set_exception_handler(handle_exception)
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
         )
@@ -192,12 +191,8 @@ class Connection:
         else:
             cur_msg = MSGS[msg_id]
 
-        """If it's just a confirmation, skip it"""
-        if cur_msg.msg == Msg.POWER:
-            if Msg.RESPONSE_GOOD not in data:
-                _LOGGER.error(f"POWER Command Failed: {data}")
-        elif cur_msg.map is not None:
-            await self.populate_items(data, cur_msg.map)
+        if cur_msg.map is not None:
+            await self.populate_items(data, cur_msg)
 
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
@@ -209,13 +204,24 @@ class Connection:
 
         return finished
 
-    async def populate_items(self, data, map):
+    async def populate_items(self, data, cur_msg):
+        """process all the fields"""
+        map = cur_msg.map
         for elem in map:
+            """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
             index = elem.index * 2
             size = elem.size * 2
 
-            value = int(data[index : index + size], 16)
-            if any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
+            """Extract value for this field"""
+            value = data[index : index + size]
+
+            if elem.type == Elem.INT:
+                value = int(value, 16)
+
+            if "RESULT" in map[elem]:
+                if Msg.RESPONSE_GOOD not in value:
+                    _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
+            elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
                 value = value / 10
             elif "AUTO_BITFIELD" in map[elem]:
                 for i in range(0, 7):

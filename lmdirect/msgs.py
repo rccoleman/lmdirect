@@ -3,13 +3,16 @@ import logging, asyncio
 from functools import partial
 from datetime import datetime
 
-RESPONSE_GOOD = "OK"
-
 # Response Maps
-class Element:
-    def __init__(self, index, size=1):
+class Elem:
+
+    INT = 0
+    STRING = 1
+
+    def __init__(self, index, size=1, type=INT):
         self._index = index
         self._size = size
+        self._type = type
 
     @property
     def index(self):
@@ -19,6 +22,10 @@ class Element:
     def size(self):
         return self._size
 
+    @property
+    def type(self):
+        return self._type
+
 
 # R
 # 40 1C 00 04: Preamble
@@ -26,7 +33,7 @@ class Element:
 # 04 D8: Steam Temp (124.0C)
 # B6: Check byte
 
-TEMP_REPORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
+TEMP_REPORT_MAP = {Elem(4, 2): "TEMP_COFFEE", Elem(6, 2): "TEMP_STEAM"}
 
 # R
 # 40 00 00 20: Preamble
@@ -39,9 +46,9 @@ TEMP_REPORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 # 70: Check byte
 
 STATUS_MAP = {
-    Element(27, 1): "MACHINE_STATUS",
-    # Element(32, 2): "TEMP_COFFEE",
-    # Element(34, 2): "TEMP_STEAM",
+    Elem(27, 1): "MACHINE_STATUS",
+    # Elem(32, 2): "TEMP_COFFEE",
+    # Elem(34, 2): "TEMP_STEAM",
 }
 
 # R
@@ -67,23 +74,23 @@ STATUS_MAP = {
 # 35: Check byte
 
 CONFIG_MAP = {
-    Element(11, 2): "TSET_COFFEE",
-    Element(13, 2): "TSET_STEAM",
-    Element(15): "ENABLE_PREBREWING",
-    Element(16): "TON_PREBREWING_K1",
-    Element(17): "TON_PREBREWING_K2",
-    Element(18): "TON_PREBREWING_K3",
-    Element(19): "TON_PREBREWING_K4",
-    Element(20): "TOFF_PREBREWING_K1",
-    Element(21): "TOFF_PREBREWING_K2",
-    Element(22): "TOFF_PREBREWING_K3",
-    Element(23): "TOFF_PREBREWING_K4",
-    Element(24, 2): "DOSE_K1",
-    Element(26, 2): "DOSE_K2",
-    Element(28, 2): "DOSE_K3",
-    Element(30, 2): "DOSE_K4",
-    Element(32, 2): "DOSE_K5",
-    Element(34): "DOSE_TEA",
+    Elem(11, 2): "TSET_COFFEE",
+    Elem(13, 2): "TSET_STEAM",
+    Elem(15): "ENABLE_PREBREWING",
+    Elem(16): "TON_PREBREWING_K1",
+    Elem(17): "TON_PREBREWING_K2",
+    Elem(18): "TON_PREBREWING_K3",
+    Elem(19): "TON_PREBREWING_K4",
+    Elem(20): "TOFF_PREBREWING_K1",
+    Elem(21): "TOFF_PREBREWING_K2",
+    Elem(22): "TOFF_PREBREWING_K3",
+    Elem(23): "TOFF_PREBREWING_K4",
+    Elem(24, 2): "DOSE_K1",
+    Elem(26, 2): "DOSE_K2",
+    Elem(28, 2): "DOSE_K3",
+    Elem(30, 2): "DOSE_K4",
+    Elem(32, 2): "DOSE_K5",
+    Elem(34): "DOSE_TEA",
 }
 
 # Response to R 03 10 00 1D EB
@@ -109,21 +116,21 @@ CONFIG_MAP = {
 # 2E: Check byte
 
 AUTO_SCHED_MAP = {
-    Element(4): "AUTO_BITFIELD",
-    Element(5): "SUN_ON",
-    Element(6): "SUN_OFF",
-    Element(7): "MON_ON",
-    Element(8): "MON_OFF",
-    Element(9): "TUE_ON",
-    Element(10): "TUE_OFF",
-    Element(11): "WED_ON",
-    Element(12): "WED_OFF",
-    Element(13): "THU_ON",
-    Element(14): "THU_OFF",
-    Element(15): "FRI_ON",
-    Element(16): "FRI_OFF",
-    Element(17): "SAT_ON",
-    Element(18): "SAT_OFF",
+    Elem(4): "AUTO_BITFIELD",
+    Elem(5): "SUN_ON",
+    Elem(6): "SUN_OFF",
+    Elem(7): "MON_ON",
+    Elem(8): "MON_OFF",
+    Elem(9): "TUE_ON",
+    Elem(10): "TUE_OFF",
+    Elem(11): "WED_ON",
+    Elem(12): "WED_OFF",
+    Elem(13): "THU_ON",
+    Elem(14): "THU_OFF",
+    Elem(15): "FRI_ON",
+    Elem(16): "FRI_OFF",
+    Elem(17): "SAT_ON",
+    Elem(18): "SAT_OFF",
 }
 
 AUTO_BITFIELD_MAP = {
@@ -135,6 +142,15 @@ AUTO_BITFIELD_MAP = {
     5: "THU_AUTO",
     6: "FRI_AUTO",
     7: "SAT_AUTO",
+}
+
+# W: Write
+# 00 00 00 01 : Message
+# OK: Result
+# 72: Check byte
+
+POWER_MAP = {
+    Elem(4, 1, type=Elem.STRING): "POWER_RESULT",
 }
 
 
@@ -152,6 +168,8 @@ class Msg:
 
     READ = "R"
     WRITE = "W"
+
+    RESPONSE_GOOD = "OK"
 
     def __init__(self, msg_type, msg, map):
         """Init command"""
@@ -179,6 +197,6 @@ MSGS = {
     Msg.STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
     Msg.CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
     Msg.AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
-    Msg.POWER: Msg(Msg.WRITE, "00000001", None),
+    Msg.POWER: Msg(Msg.WRITE, "00000001", POWER_MAP),
     Msg.TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
 }
