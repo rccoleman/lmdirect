@@ -6,13 +6,14 @@ _LOGGER.setLevel(logging.DEBUG)
 
 PHONE_IP = "192.168.1.150"
 LM_IP = "192.168.1.215"
-FILE = "config.json"
+CONFIG_FILE = "config.json"
 
 try:
-    with open(FILE) as config_file:
+    with open(CONFIG_FILE) as config_file:
         data = json.load(config_file)
 
         key = data["key"]
+        filename = data["filename"]
 except Exception as err:
     print(err)
     exit(1)
@@ -21,8 +22,15 @@ cipher = AESCipher(key)
 
 SOURCE_MAP = {PHONE_IP: "\nApp", LM_IP: "Machine"}
 
+
+def checksum(buffer):
+    """Compute check byte"""
+    buffer = bytes(buffer, "utf-8")
+    return "%0.2X" % (sum(buffer) % 256)
+
+
 # Opening JSON file
-with open("version.json") as json_file:
+with open(filename) as json_file:
     data = json.load(json_file)
 
     for item in data:
@@ -43,14 +51,9 @@ with open("version.json") as json_file:
 
             for i in range(1, len(plaintext), 2):
                 chars = plaintext[i : i + 2]
-                print(
-                    codecs.decode(chars, "hex").decode("utf-8")
-                    if chars.isdigit() and 30 <= int(chars) <= 39
-                    else chars,
-                    end=" ",
-                )
+                print(chars, end=" ")
 
-            print("")
+            print(f": ({checksum(plaintext[:-2])})")
 
         except KeyError:
             pass

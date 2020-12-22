@@ -1,10 +1,14 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
-import lmdirect.cmds as CMD
+from lmdirect.msgs import Msg, MSGS
+
 from lmdirect.const import *
 
-logging.basicConfig(level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 _LOGGER.setLevel(logging.INFO)
 
 
@@ -34,14 +38,17 @@ class lmtest:
 
     def update(self, data, finished):
         _LOGGER.debug(
-            "Updated: {}, {}".format(data, "Finished" if finished else "Waiting")
+            "Updated: {}, {}".format(
+                self.lmdirect.current_status, "Finished" if finished else "Waiting"
+            )
         )
 
     async def poll_status_task(self):
         """Send periodic status requests"""
+        _LOGGER.debug("Starting polling task")
         while self._run:
             await self.lmdirect.request_status()
-            await asyncio.sleep(10)
+            await asyncio.sleep(20)
 
     async def close(self):
         await self.lmdirect.close()
@@ -71,9 +78,9 @@ class lmtest:
                 ).rstrip()
 
                 if response == "1":
-                    await self.lmdirect.send_cmd(CMD.CMD_ON)
+                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_ON_DATA)
                 elif response == "2":
-                    await self.lmdirect.send_cmd(CMD.CMD_OFF)
+                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_OFF_DATA)
                 elif response == "3":
                     print(self.lmdirect.current_status)
                 else:

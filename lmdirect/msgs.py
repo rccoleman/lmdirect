@@ -1,47 +1,7 @@
 """Local API commands for La Marzocco espresso machines"""
-
-# Commands
-
-# Read
-CMD_D8_STATUS = "R40000020D8"
-CMD_E9_CONFIG = "R0000001FE9"
-CMD_EB_AUTO_SCHED = "R0310001DEB"
-
-# Write
-CMD_ON = "W000000010139"
-CMD_OFF = "W000000010038"
-CMD_SET_AUTO_ON = "W0310001DFE061106110611061106110611061100000000000000000000000000003"
-CMD_SET_AUTO_OFF = "W030000070B0F15070D0C14E2"
-
-# Preambles
-RESP_WRITE_ON_OFF_PREAMBLE = "00000001"
-RESP_SHORT_PREAMBLE = "401C0004"
-RESP_D8_STATUS_PREAMBLE = "40000020"
-RESP_E9_CONFIG_PREAMBLE = "0000001F"
-RESP_EB_AUTOSCHED_PREAMBLE = "0310001D"
-
-PREAMBLES = [
-    RESP_WRITE_ON_OFF_PREAMBLE,
-    RESP_SHORT_PREAMBLE,
-    RESP_D8_STATUS_PREAMBLE,
-    RESP_E9_CONFIG_PREAMBLE,
-    RESP_EB_AUTOSCHED_PREAMBLE,
-]
-
-CMD_RESP_MAP = {
-    CMD_D8_STATUS: RESP_D8_STATUS_PREAMBLE,
-    CMD_E9_CONFIG: RESP_E9_CONFIG_PREAMBLE,
-    CMD_EB_AUTO_SCHED: RESP_EB_AUTOSCHED_PREAMBLE,
-    CMD_ON: RESP_WRITE_ON_OFF_PREAMBLE,
-    CMD_OFF: RESP_WRITE_ON_OFF_PREAMBLE,
-}
-
-STATUS_REQUESTS = [
-    RESP_D8_STATUS_PREAMBLE,
-    RESP_E9_CONFIG_PREAMBLE,
-    RESP_EB_AUTOSCHED_PREAMBLE,
-    RESP_SHORT_PREAMBLE,
-]
+import logging, asyncio
+from functools import partial
+from datetime import datetime
 
 RESPONSE_GOOD = "OK"
 
@@ -64,9 +24,9 @@ class Element:
 # 40 1C 00 04: Preamble
 # 03 BC: Coffee Temp (95.6C)
 # 04 D8: Steam Temp (124.0C)
-# B6
+# B6: Check byte
 
-SHORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
+TEMP_REPORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 
 # R
 # 40 00 00 20: Preamble
@@ -76,9 +36,9 @@ SHORT_MAP = {Element(4, 2): "TEMP_COFFEE", Element(6, 2): "TEMP_STEAM"}
 # 01 00 00 00
 # 32: 02 96: Coffee Temp (66.2C)
 # 34: 03 2A: Steam Temp (81.0C)
-# 70
+# 70: Check byte
 
-D8_MAP = {
+STATUS_MAP = {
     Element(27, 1): "MACHINE_STATUS",
     # Element(32, 2): "TEMP_COFFEE",
     # Element(34, 2): "TEMP_STEAM",
@@ -104,9 +64,9 @@ D8_MAP = {
 # 30: 0085: Dose B4
 # 32: 03E8: Dose B5
 # 34: 08: Seconds hot water for Tea
-# 35: 66: Degrees f/c
+# 35: Check byte
 
-E9_MAP = {
+CONFIG_MAP = {
     Element(11, 2): "TSET_COFFEE",
     Element(13, 2): "TSET_STEAM",
     Element(15): "ENABLE_PREBREWING",
@@ -145,9 +105,10 @@ E9_MAP = {
 # 16: 11: Friday off hour (5pm)
 # 17: 06: Saturday on hour
 # 18: 11: Saturday off hour (5pm)
-# 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2E
+# 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+# 2E: Check byte
 
-EB_MAP = {
+AUTO_SCHED_MAP = {
     Element(4): "AUTO_BITFIELD",
     Element(5): "SUN_ON",
     Element(6): "SUN_OFF",
@@ -176,9 +137,48 @@ AUTO_BITFIELD_MAP = {
     7: "SAT_AUTO",
 }
 
-RESP_MAP = {
-    RESP_D8_STATUS_PREAMBLE: D8_MAP,
-    RESP_E9_CONFIG_PREAMBLE: E9_MAP,
-    RESP_SHORT_PREAMBLE: SHORT_MAP,
-    RESP_EB_AUTOSCHED_PREAMBLE: EB_MAP,
+
+class Msg:
+    STATUS = 0
+    CONFIG = 1
+    AUTO_SCHED = 2
+    POWER = 3
+    TEMP_REPORT = 4
+    SET_AUTO_ON = 4
+    SET_AUTO_OFF = 5
+
+    POWER_ON_DATA = "01"
+    POWER_OFF_DATA = "00"
+
+    READ = "R"
+    WRITE = "W"
+
+    def __init__(self, msg_type, msg, map):
+        """Init command"""
+        self._msg_type = msg_type
+        self._msg = msg
+        self._map = map
+
+    @property
+    def msg_type(self):
+        """Command type"""
+        return self._msg_type
+
+    @property
+    def msg(self):
+        """Command type"""
+        return self._msg
+
+    @property
+    def map(self):
+        """Return map if we should decode, None if not"""
+        return self._map
+
+
+MSGS = {
+    Msg.STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
+    Msg.CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
+    Msg.AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
+    Msg.POWER: Msg(Msg.WRITE, "00000001", None),
+    Msg.TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
 }
