@@ -24,7 +24,7 @@ class Connection:
         self._current_status = {}
         self._responses_waiting = []
         self._run = False
-        self._callback = None
+        self._callback_list = []
         self._cipher = None
         self._creds = creds
         self._key = None
@@ -160,9 +160,12 @@ class Connection:
 
                 finished_queue = await self._process_data(plaintext)
 
-                """Call the callback"""
-                if self._callback is not None:
-                    self._callback(self._current_status, finished_queue)
+                """Call the callbacks"""
+                if self._callback_list is not None:
+                    [
+                        f(self._current_status, finished_queue)
+                        for f in self._callback_list
+                    ]
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):

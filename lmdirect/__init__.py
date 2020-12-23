@@ -35,7 +35,7 @@ class LMDirect(Connection):
     def register_callback(self, callback):
         """Register callback for updates"""
         if callable(callback):
-            self._callback = callback
+            self._callback_list.append(callback)
 
     async def request_status(self):
         """Request all status elements"""
