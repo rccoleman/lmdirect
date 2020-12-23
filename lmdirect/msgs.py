@@ -1,7 +1,4 @@
 """Local API commands for La Marzocco espresso machines"""
-import logging, asyncio
-from functools import partial
-from datetime import datetime
 
 # Response Maps
 class Elem:
