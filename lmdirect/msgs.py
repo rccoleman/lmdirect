@@ -1,5 +1,68 @@
 """Local API commands for La Marzocco espresso machines"""
 
+# Tags
+
+RECEIVED = "RECEIVED"
+MACHINE_STATUS = "MACHINE_STATUS"
+TEMP_STEAM = "TEMP_STEAM"
+TEMP_COFFEE = "TEMP_COFFEE"
+TSET_STEAM = "TSET_STEAM"
+TSET_COFFEE = "TSET_COFFEE"
+DOSE_K1 = "DOSE_K1"
+DOSE_K2 = "DOSE_K2"
+DOSE_K3 = "DOSE_K3"
+DOSE_K4 = "DOSE_K4"
+DOSE_K5 = "DOSE_K5"
+DOSE_TEA = "DOSE_TEA"
+ENABLE_PREBREWING = "ENABLE_PREBREWING"
+TON_PREBREWING_K1 = "TON_PREBREWING_K1"
+TON_PREBREWING_K2 = "TON_PREBREWING_K2"
+TON_PREBREWING_K3 = "TON_PREBREWING_K3"
+TON_PREBREWING_K4 = "TON_PREBREWING_K4"
+TOFF_PREBREWING_K1 = "TOFF_PREBREWING_K1"
+TOFF_PREBREWING_K2 = "TOFF_PREBREWING_K2"
+TOFF_PREBREWING_K3 = "TOFF_PREBREWING_K3"
+TOFF_PREBREWING_K4 = "TOFF_PREBREWING_K4"
+
+FIRMWARE = "FIRMWARE"
+MODULE_SER_NUM = "MODULE_SER_NUM"
+
+SUN_ON = "SUN_ON"
+SUN_OFF = "SUN_OFF"
+MON_ON = "MON_ON"
+MON_OFF = "MON_OFF"
+TUE_ON = "TUE_ON"
+TUE_OFF = "TUE_OFF"
+WED_ON = "WED_ON"
+WED_OFF = "WED_OFF"
+THU_ON = "THU_ON"
+THU_OFF = "THU_OFF"
+FRI_ON = "FRI_ON"
+FRI_OFF = "FRI_OFF"
+SAT_ON = "SAT_ON"
+SAT_OFF = "SAT_OFF"
+
+AUTO_BITFIELD = "AUTO_BITFIELD"
+GLOBAL_AUTO = "GLOBAL_AUTO"
+SUN_AUTO = "SUN_AUTO"
+MON_AUTO = "MON_AUTO"
+TUE_AUTO = "TUE_AUTO"
+WED_AUTO = "WED_AUTO"
+THU_AUTO = "THU_AUTO"
+FRI_AUTO = "FRI_AUTO"
+SAT_AUTO = "SAT_AUTO"
+
+SECOND = "SECOND"
+MINUTE = "MINUTE"
+HOUR = "HOUR"
+DAYOFWEEK = "DAYOFWEEK"
+DAY = "DAY"
+MONTH = "MONTH"
+YEAR = "MONTH"
+
+WRITE_RESULT = "WRITE_RESULT"
+MACHINE_SER_NUM = "MACHINE_SER_NUM"
+
 # Response Maps
 class Elem:
 
@@ -30,7 +93,7 @@ class Elem:
 # 04 D8: Steam Temp (124.0C)
 # B6: Check byte
 
-TEMP_REPORT_MAP = {Elem(0, 2): "TEMP_COFFEE", Elem(2, 2): "TEMP_STEAM"}
+TEMP_REPORT_MAP = {Elem(0, 2): TEMP_COFFEE, Elem(2, 2): TEMP_STEAM}
 
 # R
 # 40 00 00 20: Preamble
@@ -47,11 +110,11 @@ TEMP_REPORT_MAP = {Elem(0, 2): "TEMP_COFFEE", Elem(2, 2): "TEMP_STEAM"}
 # 70: Check byte
 
 STATUS_MAP = {
-    Elem(1, 1): "FIRMWARE",
-    Elem(3, 12, type=Elem.STRING): "MODULE_SER_NUM",
-    Elem(23, 1): "MACHINE_STATUS",
-    # Elem(32, 2): "TEMP_COFFEE",
-    # Elem(34, 2): "TEMP_STEAM",
+    Elem(1, 1): FIRMWARE,
+    Elem(3, 12, type=Elem.STRING): MODULE_SER_NUM,
+    Elem(23, 1): MACHINE_STATUS,
+    # Elem(32, 2): TEMP_COFFEE,
+    # Elem(34, 2): TEMP_STEAM,
 }
 
 # R
@@ -77,23 +140,23 @@ STATUS_MAP = {
 # 35: Check byte
 
 CONFIG_MAP = {
-    Elem(7, 2): "TSET_COFFEE",
-    Elem(9, 2): "TSET_STEAM",
-    Elem(11): "ENABLE_PREBREWING",
-    Elem(12): "TON_PREBREWING_K1",
-    Elem(13): "TON_PREBREWING_K2",
-    Elem(14): "TON_PREBREWING_K3",
-    Elem(15): "TON_PREBREWING_K4",
-    Elem(16): "TOFF_PREBREWING_K1",
-    Elem(17): "TOFF_PREBREWING_K2",
-    Elem(18): "TOFF_PREBREWING_K3",
-    Elem(19): "TOFF_PREBREWING_K4",
-    Elem(20, 2): "DOSE_K1",
-    Elem(22, 2): "DOSE_K2",
-    Elem(24, 2): "DOSE_K3",
-    Elem(26, 2): "DOSE_K4",
-    Elem(28, 2): "DOSE_K5",
-    Elem(30): "DOSE_TEA",
+    Elem(7, 2): TSET_COFFEE,
+    Elem(9, 2): TSET_STEAM,
+    Elem(11): ENABLE_PREBREWING,
+    Elem(12): TON_PREBREWING_K1,
+    Elem(13): TON_PREBREWING_K2,
+    Elem(14): TON_PREBREWING_K3,
+    Elem(15): TON_PREBREWING_K4,
+    Elem(16): TOFF_PREBREWING_K1,
+    Elem(17): TOFF_PREBREWING_K2,
+    Elem(18): TOFF_PREBREWING_K3,
+    Elem(19): TOFF_PREBREWING_K4,
+    Elem(20, 2): DOSE_K1,
+    Elem(22, 2): DOSE_K2,
+    Elem(24, 2): DOSE_K3,
+    Elem(26, 2): DOSE_K4,
+    Elem(28, 2): DOSE_K5,
+    Elem(30): DOSE_TEA,
 }
 
 # Response to R 03 10 00 1D EB
@@ -119,32 +182,32 @@ CONFIG_MAP = {
 # 2E: Check byte
 
 AUTO_SCHED_MAP = {
-    Elem(0): "AUTO_BITFIELD",
-    Elem(1): "SUN_ON",
-    Elem(2): "SUN_OFF",
-    Elem(3): "MON_ON",
-    Elem(4): "MON_OFF",
-    Elem(5): "TUE_ON",
-    Elem(6): "TUE_OFF",
-    Elem(7): "WED_ON",
-    Elem(8): "WED_OFF",
-    Elem(9): "THU_ON",
-    Elem(10): "THU_OFF",
-    Elem(11): "FRI_ON",
-    Elem(12): "FRI_OFF",
-    Elem(13): "SAT_ON",
-    Elem(14): "SAT_OFF",
+    Elem(0): AUTO_BITFIELD,
+    Elem(1): SUN_ON,
+    Elem(2): SUN_OFF,
+    Elem(3): MON_ON,
+    Elem(4): MON_OFF,
+    Elem(5): TUE_ON,
+    Elem(6): TUE_OFF,
+    Elem(7): WED_ON,
+    Elem(8): WED_OFF,
+    Elem(9): THU_ON,
+    Elem(10): THU_OFF,
+    Elem(11): FRI_ON,
+    Elem(12): FRI_OFF,
+    Elem(13): SAT_ON,
+    Elem(14): SAT_OFF,
 }
 
 AUTO_BITFIELD_MAP = {
-    0: "GLOBAL_AUTO",
-    1: "SUN_AUTO",
-    2: "MON_AUTO",
-    3: "TUE_AUTO",
-    4: "WED_AUTO",
-    5: "THU_AUTO",
-    6: "FRI_AUTO",
-    7: "SAT_AUTO",
+    0: GLOBAL_AUTO,
+    1: SUN_AUTO,
+    2: MON_AUTO,
+    3: TUE_AUTO,
+    4: WED_AUTO,
+    5: THU_AUTO,
+    6: FRI_AUTO,
+    7: SAT_AUTO,
 }
 
 # W: Write
@@ -153,7 +216,7 @@ AUTO_BITFIELD_MAP = {
 # 72: Check byte
 
 WRITE_RESULT_MAP = {
-    Elem(0, 1, type=Elem.STRING): "WRITE_RESULT",
+    Elem(0, 1, type=Elem.STRING): WRITE_RESULT,
 }
 
 # App: R 01 00 00 11 D5
@@ -165,7 +228,7 @@ WRITE_RESULT_MAP = {
 # 7D: Check byte
 
 SER_NUM_MAP = {
-    Elem(1, 16, type=Elem.STRING): "MACHINE_SER_NUM",
+    Elem(1, 16, type=Elem.STRING): MACHINE_SER_NUM,
 }
 
 # R
@@ -180,13 +243,13 @@ SER_NUM_MAP = {
 # B3: Check byte
 
 DATETIME_MAP = {
-    Elem(0, 1): "SECOND",
-    Elem(1, 1): "MINUTE",
-    Elem(2, 1): "HOUR",
-    Elem(3, 1): "DAYOFWEEK",
-    Elem(4, 1): "DAY",
-    Elem(5, 1): "MONTH",
-    Elem(6, 1): "YEAR",
+    Elem(0, 1): SECOND,
+    Elem(1, 1): MINUTE,
+    Elem(2, 1): HOUR,
+    Elem(3, 1): DAYOFWEEK,
+    Elem(4, 1): DAY,
+    Elem(5, 1): MONTH,
+    Elem(6, 1): YEAR,
 }
 
 
@@ -203,6 +266,7 @@ class Msg:
     SET_COFFEE_TEMP = 8
     SET_STEAM_TEMP = 9
     SET_PREBREWING_ENABLE = 10
+    SET_AUTO_SCHED = 11
 
     READ = "R"
     WRITE = "W"
@@ -232,6 +296,7 @@ class Msg:
 
 
 MSGS = {
+    # Reads
     Msg.GET_STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
     Msg.GET_CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
     Msg.GET_AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
@@ -239,7 +304,9 @@ MSGS = {
     Msg.GET_TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
     Msg.GET_SER_NUM: Msg(Msg.READ, "01000011", SER_NUM_MAP),
     Msg.GET_DATETIME: Msg(Msg.READ, "03000007", DATETIME_MAP),
+    # Writes
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", WRITE_RESULT_MAP),
     Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", WRITE_RESULT_MAP),
     Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", WRITE_RESULT_MAP),
+    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", WRITE_RESULT_MAP),
 }
