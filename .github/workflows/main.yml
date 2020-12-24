@@ -6,9 +6,9 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [ dev ]
   pull_request:
-    branches: [ master ]
+    branches: [ dev ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -29,8 +29,3 @@ jobs:
       - name: Flake8 action
         uses: suo/flake8-github-action@v1
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
