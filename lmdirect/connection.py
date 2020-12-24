@@ -25,10 +25,13 @@ class Connection:
         self._responses_waiting = []
         self._run = False
         self._callback_list = []
+        self._raw_callback_list = []
         self._cipher = None
         self._creds = creds
         self._key = None
         self._start_time = None
+        self._connected = False
+        self._lock = asyncio.Lock()
 
     async def retrieve_key(self):
         """Machine data inialization"""
@@ -73,6 +76,10 @@ class Connection:
 
     async def connect(self):
         """Conmnect to espresso machine"""
+        if self._connected:
+            return
+
+        _LOGGER.debug("Connecting")
 
         if not self._key:
             try:
@@ -97,15 +104,9 @@ class Connection:
             return False
 
         """Start listening for responses & sending status requests"""
-        self._run = True
-        loop = asyncio.get_event_loop()
-        self._read_response_task = loop.create_task(
-            self.read_response_task(), name="Response Task"
-        )
+        await self.start_read_task()
 
-        """Reap the results and any any exceptions"""
-        self._reaper_task = loop.create_task(self.reaper(), name="Reaper")
-
+        self._connected = True
         _LOGGER.debug("Finished Connecting")
         return True
 
@@ -119,13 +120,17 @@ class Connection:
         )
 
         """Reap the results and any any exceptions"""
-        loop.create_task(self.reaper(), name="Reaper")
+        self._reaper_task = loop.create_task(self.reaper(), name="Reaper")
 
     async def _close(self):
         """Close the connection"""
+        if not self._connected:
+            return
+
         if self._writer is not None:
             self._writer.close()
         self._reader = self._writer = None
+        self._connected = False
         _LOGGER.debug("Finished closing")
 
     async def reaper(self):
@@ -140,9 +145,18 @@ class Connection:
 
         _LOGGER.debug("Finished reaping")
 
+    def call_callbacks(self, finished_queue, **kwargs):
+        """Call the callbacks"""
+        if self._callback_list is not None:
+            [
+                elem[0](self._current_status, finished_queue, **elem[1])
+                for elem in self._callback_list
+            ]
+
     async def read_response_task(self):
         """Start thread to receive responses"""
         BUFFER_SIZE = 1000
+        handle = None
 
         _LOGGER.debug("Starting read task")
 
@@ -160,12 +174,11 @@ class Connection:
 
                 finished_queue = await self._process_data(plaintext)
 
-                """Call the callbacks"""
-                if self._callback_list is not None:
-                    [
-                        f(self._current_status, finished_queue)
-                        for f in self._callback_list
-                    ]
+                if handle:
+                    handle.cancel()
+                    handle = None
+
+                handle = loop.call_later(5, self.call_callbacks, finished_queue)
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
@@ -179,15 +192,28 @@ class Connection:
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
+        msg_type = plaintext[0]
         raw_data = plaintext[1:]
         msg = raw_data[:8]
-        data = raw_data[8:]
+
+        """chop off the message and check byte"""
+        data = raw_data[8:-2]
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug("Message={}, Data={}".format(msg, data))
 
-        """Find the first matching item or returns None"""
-        msg_id = next((x for x in MSGS if MSGS[x].msg == msg), None)
+        """Find the matching item or returns None"""
+        msg_id = next(
+            (x for x in MSGS if MSGS[x].msg == msg and MSGS[x].msg_type == msg_type),
+            None,
+        )
+
+        """notify any listeners for this message (chop off the check byte)"""
+        [
+            await x[1]((msg_id, x[1], x[2]), data, **x[2])
+            for x in self._raw_callback_list
+            if MSGS[x[0]].msg == msg
+        ]
 
         if msg_id is None:
             _LOGGER.error("Unexpected response: {}".format(plaintext))
@@ -238,55 +264,56 @@ class Connection:
                 value = value.partition("\0")[0]
 
             elif "AUTO_BITFIELD" in map[elem]:
-                for i in range(0, 7):
+                for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if value & 0x01 else DISABLED
-                    self._current_status[AUTO_BITFIELD_MAP[i]] = setting
+                    self._current_status[AUTO_BITFIELD_MAP[item]] = setting
                     value = value >> 1
                 continue
             self._current_status[map[elem]] = value
 
-    async def _send_msg(self, msg, value=None, size=0):
+    async def _send_msg(self, msg_id, data=None):
         """Send command to espresso machine"""
-
-        def convert_to_ascii(value, size):
-            """Convert an integer value to ASCII-encoded hex"""
-            return ("%0" + str(size * 2) + "X") % value
 
         def checksum(buffer):
             """Compute check byte"""
             buffer = bytes(buffer, "utf-8")
             return "%0.2X" % (sum(buffer) % 256)
 
-        _LOGGER.debug("Sending {} with {}".format(msg.msg, value))
+        """Prevent race conditions - can be called from different tasks"""
+        async with self._lock:
+            msg = MSGS[msg_id]
 
-        """Connect if we don't have an active connection"""
-        if self._writer is None:
-            if not await self.connect():
-                _LOGGER.debug("Connectin failed, not sending {}".format(msg))
-                return
+            _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
-        """Add read/write and check bytes"""
-        plaintext = msg.msg_type + msg.msg
+            """Connect if we don't have an active connection"""
+            await self.connect()
 
-        if value is not None:
-            plaintext += convert_to_ascii(value, size)
+            """Add read/write and check bytes"""
+            plaintext = msg.msg_type + msg.msg
 
-        """Add the check byte"""
-        plaintext += checksum(plaintext)
+            if data is not None:
+                plaintext += data
 
-        loop = asyncio.get_event_loop()
-        fn = partial(self._cipher.encrypt, plaintext)
-        ciphertext = "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
+            """Add the check byte"""
+            plaintext += checksum(plaintext)
 
-        self._writer.write(bytes(ciphertext, "utf-8"))
-        await self._writer.drain()
+            loop = asyncio.get_event_loop()
+            fn = partial(self._cipher.encrypt, plaintext)
+            ciphertext = (
+                "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
+            )
 
-        """Remember that we're waiting for a response"""
-        self._responses_waiting.append(msg.msg)
-        _LOGGER.debug("Now waiting for {}".format(self._responses_waiting))
+            self._writer.write(bytes(ciphertext, "utf-8"))
+            await self._writer.drain()
 
-        """Note when the command was sent"""
-        self._start_time = datetime.now()
+            """Remember that we're waiting for a response"""
+            self._responses_waiting.append(msg.msg)
+            _LOGGER.debug("Now waiting for {}".format(self._responses_waiting))
+
+            """Note when the command was sent"""
+            self._start_time = datetime.now()
+
+            _LOGGER.debug("Finished sending")
 
 
 class AuthFail(BaseException):
