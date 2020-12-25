@@ -3,6 +3,11 @@ from lmdirect.const import DISABLED, ENABLED
 from .connection import Connection
 from .msgs import (
     DOSE_TEA,
+    ENTITY_AUTO_ON_OFF,
+    ENTITY_COFFEE_TEMP,
+    ENTITY_MAIN,
+    ENTITY_PREBREW,
+    ENTITY_STEAM_TEMP,
     Msg,
     MSGS,
     AUTO_SCHED_MAP,
@@ -108,7 +113,7 @@ class LMDirect(Connection):
         value = self.convert_to_ascii(0x01 if power else 0x00, size=1)
         await self._send_msg(Msg.SET_POWER, value)
         await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_MAIN)
 
     async def set_auto_on_off(self, field_name, value):
         """Configure auto on/off"""
@@ -141,7 +146,7 @@ class LMDirect(Connection):
 
                 await self._send_msg(Msg.SET_AUTO_SCHED, buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
-                self._call_callbacks()
+                self._call_callbacks(entity=ENTITY_AUTO_ON_OFF)
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
 
@@ -181,7 +186,7 @@ class LMDirect(Connection):
                 _LOGGER.info(f"New data:  {buf_to_send}")
                 await self._send_msg(Msg.SET_AUTO_SCHED, buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
-                self._call_callbacks()
+                self._call_callbacks(entity=ENTITY_AUTO_ON_OFF)
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
 
@@ -208,7 +213,7 @@ class LMDirect(Connection):
         key = self.convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
         await self._send_msg(Msg.SET_DOSE, key=key, data=data)
         await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_MAIN)
 
     async def set_dose_tea(self, seconds):
         """Set the coffee boiler temp in Celcius"""
@@ -226,7 +231,7 @@ class LMDirect(Connection):
         data = self.convert_to_ascii(seconds, size=1)
         await self._send_msg(Msg.SET_DOSE_TEA, data=data)
         await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_MAIN)
 
     async def set_prebrew_times(self, key, time_on, time_off):
         """Set the coffee boiler temp in Celcius"""
@@ -260,7 +265,7 @@ class LMDirect(Connection):
         data = self.convert_to_ascii(int(time_off * 10), size=1)
         await self._send_msg(Msg.SET_PB_OFF, key=key_off, data=data)
         await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_PREBREW)
 
     async def set_coffee_temp(self, temp):
         """Set the coffee boiler temp in Celcius"""
@@ -275,7 +280,7 @@ class LMDirect(Connection):
         data = self.convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
         await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_COFFEE_TEMP)
 
     async def set_steam_temp(self, temp):
         """Set the steam boiler temp in Celcius"""
@@ -290,11 +295,11 @@ class LMDirect(Connection):
         data = self.convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
         await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_STEAM_TEMP)
 
     async def set_prebrewing_enable(self, enable):
         """Turn prebrewing on or off"""
         data = self.convert_to_ascii(0x01 if enable else 0x00, size=1)
         await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
         await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks()
+        self._call_callbacks(entity=ENTITY_PREBREW)
