@@ -3,7 +3,7 @@
 # Tags
 
 RECEIVED = "RECEIVED"
-MACHINE_STATUS = "MACHINE_STATUS"
+POWER = "POWER"
 TEMP_STEAM = "TEMP_STEAM"
 TEMP_COFFEE = "TEMP_COFFEE"
 TSET_STEAM = "TSET_STEAM"
@@ -112,7 +112,7 @@ TEMP_REPORT_MAP = {Elem(0, 2): TEMP_COFFEE, Elem(2, 2): TEMP_STEAM}
 STATUS_MAP = {
     Elem(1, 1): FIRMWARE,
     Elem(3, 12, type=Elem.STRING): MODULE_SER_NUM,
-    Elem(23, 1): MACHINE_STATUS,
+    Elem(23, 1): POWER,
     # Elem(32, 2): TEMP_COFFEE,
     # Elem(34, 2): TEMP_STEAM,
 }
@@ -201,13 +201,13 @@ AUTO_SCHED_MAP = {
 
 AUTO_BITFIELD_MAP = {
     0: GLOBAL_AUTO,
-    1: SUN_AUTO,
-    2: MON_AUTO,
-    3: TUE_AUTO,
-    4: WED_AUTO,
-    5: THU_AUTO,
-    6: FRI_AUTO,
-    7: SAT_AUTO,
+    1: MON_AUTO,
+    2: TUE_AUTO,
+    3: WED_AUTO,
+    4: THU_AUTO,
+    5: FRI_AUTO,
+    6: SAT_AUTO,
+    7: SUN_AUTO,
 }
 
 # W: Write
@@ -267,6 +267,19 @@ class Msg:
     SET_STEAM_TEMP = 9
     SET_PREBREWING_ENABLE = 10
     SET_AUTO_SCHED = 11
+    SET_DOSE = 12
+    SET_DOSE_TEA = 13
+    SET_PB_ON = 14
+    SET_PB_OFF = 15
+
+    """Dose command starts at 0x14 for the first key and increments by 2 thereafter"""
+    DOSE_KEY_BASE = 0x14
+
+    """Prebrew on base"""
+    PREBREW_ON_BASE = 0x0C
+
+    """Prebrew off base"""
+    PREBREW_OFF_BASE = 0x10
 
     READ = "R"
     WRITE = "W"
@@ -309,4 +322,9 @@ MSGS = {
     Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", WRITE_RESULT_MAP),
     Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", WRITE_RESULT_MAP),
     Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", WRITE_RESULT_MAP),
+    # Write config for keys (last byte is the key number, starting at 0, and will be replaced)
+    Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", WRITE_RESULT_MAP),
+    Msg.SET_PB_ON: Msg(Msg.WRITE, "000C0001", WRITE_RESULT_MAP),
+    Msg.SET_PB_OFF: Msg(Msg.WRITE, "00100001", WRITE_RESULT_MAP),
+    Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", WRITE_RESULT_MAP),
 }

@@ -145,11 +145,11 @@ class Connection:
 
         _LOGGER.debug("Finished reaping")
 
-    def call_callbacks(self, finished_queue, **kwargs):
+    def _call_callbacks(self, **kwargs):
         """Call the callbacks"""
         if self._callback_list is not None:
             [
-                elem[0](self._current_status, finished_queue, **elem[1])
+                elem(current_status=self._current_status, **kwargs)
                 for elem in self._callback_list
             ]
 
@@ -178,7 +178,7 @@ class Connection:
                     handle.cancel()
                     handle = None
 
-                handle = loop.call_later(5, self.call_callbacks, finished_queue)
+                handle = loop.call_later(5, self._call_callbacks)
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
@@ -208,9 +208,9 @@ class Connection:
             None,
         )
 
-        """notify any listeners for this message (chop off the check byte)"""
+        """notify any listeners for this message"""
         [
-            await x[1]((msg_id, x[1], x[2]), data, **x[2])
+            await x[1]((msg_id, x[1]), data)
             for x in self._raw_callback_list
             if MSGS[x[0]].msg == msg
         ]
@@ -271,7 +271,7 @@ class Connection:
                 continue
             self._current_status[map[elem]] = value
 
-    async def _send_msg(self, msg_id, data=None):
+    async def _send_msg(self, msg_id, data=None, key=None):
         """Send command to espresso machine"""
 
         def checksum(buffer):
@@ -290,6 +290,10 @@ class Connection:
 
             """Add read/write and check bytes"""
             plaintext = msg.msg_type + msg.msg
+
+            """If a key was provided, replace the second byte of the message"""
+            if key:
+                plaintext = plaintext[:3] + key + plaintext[5:]
 
             if data is not None:
                 plaintext += data
