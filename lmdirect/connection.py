@@ -178,7 +178,8 @@ class Connection:
                     handle.cancel()
                     handle = None
 
-                handle = loop.call_later(5, self._call_callbacks)
+                """Throttle callbacks"""
+                handle = loop.call_later(2, self._call_callbacks)
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
