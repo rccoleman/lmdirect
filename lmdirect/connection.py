@@ -32,6 +32,7 @@ class Connection:
         self._start_time = None
         self._connected = False
         self._lock = asyncio.Lock()
+        self._first_time = True
 
     async def retrieve_key(self):
         """Machine data inialization"""
@@ -142,6 +143,7 @@ class Connection:
 
         await self._close()
         self._read_response_task = None
+        self._first_time = False
 
         _LOGGER.debug("Finished reaping")
 
@@ -172,14 +174,17 @@ class Connection:
                 if not plaintext:
                     continue
 
-                finished_queue = await self._process_data(plaintext)
+                await self._process_data(plaintext)
 
-                if handle:
-                    handle.cancel()
-                    handle = None
+                if not self._first_time:
+                    if handle:
+                        handle.cancel()
+                        handle = None
 
-                """Throttle callbacks"""
-                handle = loop.call_later(2, self._call_callbacks)
+                    """Throttle callbacks"""
+                    handle = loop.call_later(5, self._call_callbacks)
+                else:
+                    self._call_callbacks()
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
