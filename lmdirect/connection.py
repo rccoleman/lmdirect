@@ -10,7 +10,7 @@ from functools import partial
 
 _LOGGER = logging.getLogger(__name__)
 
-from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP
+from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
 from .const import *
 import logging
 
@@ -24,11 +24,15 @@ class Connection:
         self._current_status = {}
         self._responses_waiting = []
         self._run = False
-        self._callback = None
+        self._callback_list = []
+        self._raw_callback_list = []
         self._cipher = None
         self._creds = creds
         self._key = None
         self._start_time = None
+        self._connected = False
+        self._lock = asyncio.Lock()
+        self._first_time = True
 
     async def retrieve_key(self):
         """Machine data inialization"""
@@ -73,6 +77,10 @@ class Connection:
 
     async def connect(self):
         """Conmnect to espresso machine"""
+        if self._connected:
+            return
+
+        _LOGGER.debug("Connecting")
 
         if not self._key:
             try:
@@ -97,15 +105,9 @@ class Connection:
             return False
 
         """Start listening for responses & sending status requests"""
-        self._run = True
-        loop = asyncio.get_event_loop()
-        self._read_response_task = loop.create_task(
-            self.read_response_task(), name="Response Task"
-        )
+        await self.start_read_task()
 
-        """Reap the results and any any exceptions"""
-        self._reaper_task = loop.create_task(self.reaper(), name="Reaper")
-
+        self._connected = True
         _LOGGER.debug("Finished Connecting")
         return True
 
@@ -114,19 +116,22 @@ class Connection:
 
         """Start listening for responses & sending status requests"""
         loop = asyncio.get_event_loop()
-        loop.set_exception_handler(handle_exception)
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
         )
 
         """Reap the results and any any exceptions"""
-        loop.create_task(self.reaper(), name="Reaper")
+        self._reaper_task = loop.create_task(self.reaper(), name="Reaper")
 
     async def _close(self):
         """Close the connection"""
+        if not self._connected:
+            return
+
         if self._writer is not None:
             self._writer.close()
         self._reader = self._writer = None
+        self._connected = False
         _LOGGER.debug("Finished closing")
 
     async def reaper(self):
@@ -137,14 +142,23 @@ class Connection:
             _LOGGER.error(f"Exception in read_response_task: {err}")
 
         await self._close()
-
         self._read_response_task = None
+        self._first_time = False
 
         _LOGGER.debug("Finished reaping")
+
+    def _call_callbacks(self, **kwargs):
+        """Call the callbacks"""
+        if self._callback_list is not None:
+            [
+                elem(current_status=self._current_status, **kwargs)
+                for elem in self._callback_list
+            ]
 
     async def read_response_task(self):
         """Start thread to receive responses"""
         BUFFER_SIZE = 1000
+        handle = None
 
         _LOGGER.debug("Starting read task")
 
@@ -160,11 +174,17 @@ class Connection:
                 if not plaintext:
                     continue
 
-                finished_queue = await self.process_data(plaintext)
+                await self._process_data(plaintext)
 
-                """Call the callback"""
-                if self._callback is not None:
-                    self._callback(self._current_status, finished_queue)
+                if not self._first_time:
+                    if handle:
+                        handle.cancel()
+                        handle = None
+
+                    """Throttle callbacks"""
+                    handle = loop.call_later(5, self._call_callbacks)
+                else:
+                    self._call_callbacks()
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
@@ -174,30 +194,41 @@ class Connection:
                     self._responses_waiting = []
                     break
 
-    async def process_data(self, plaintext):
+    async def _process_data(self, plaintext):
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
-        data = plaintext[1:]
-        msg = data[:8]
+        msg_type = plaintext[0]
+        raw_data = plaintext[1:]
+        msg = raw_data[:8]
+
+        """chop off the message and check byte"""
+        data = raw_data[8:-2]
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug("Message={}, Data={}".format(msg, data))
 
-        msg_id = next((x for x in MSGS if MSGS[x].msg == msg), None)
+        """Find the matching item or returns None"""
+        msg_id = next(
+            (x for x in MSGS if MSGS[x].msg == msg and MSGS[x].msg_type == msg_type),
+            None,
+        )
+
+        """notify any listeners for this message"""
+        [
+            await x[1]((msg_id, x[1]), data)
+            for x in self._raw_callback_list
+            if MSGS[x[0]].msg == msg
+        ]
 
         if msg_id is None:
-            _LOGGER.debug("Ignoring response: {}".format(plaintext))
+            _LOGGER.error("Unexpected response: {}".format(plaintext))
             return finished
         else:
             cur_msg = MSGS[msg_id]
 
-        """If it's just a confirmation, skip it"""
-        if cur_msg.msg == Msg.POWER:
-            if Msg.RESPONSE_GOOD not in data:
-                _LOGGER.error(f"POWER Command Failed: {data}")
-        elif cur_msg.map is not None:
-            await self.populate_items(data, cur_msg.map)
+        if cur_msg.map is not None:
+            await self._populate_items(data, cur_msg)
 
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
@@ -209,59 +240,90 @@ class Connection:
 
         return finished
 
-    async def populate_items(self, data, map):
+    async def _populate_items(self, data, cur_msg):
+        """process all the fields"""
+        map = cur_msg.map
         for elem in map:
+            """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
             index = elem.index * 2
             size = elem.size * 2
 
-            value = int(data[index : index + size], 16)
-            if any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
+            """Extract value for this field"""
+            value = data[index : index + size]
+
+            if elem.type == Elem.INT:
+                value = int(value, 16)
+
+            if "RESULT" in map[elem]:
+                if Msg.RESPONSE_GOOD not in value:
+                    _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
+                else:
+                    _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
+            elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
                 value = value / 10
+            elif "FIRMWARE" in map[elem]:
+                value = "%0.2f" % (value / 100)
+            elif "SER_NUM" in map[elem]:
+                value = "".join(
+                    [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
+                )
+                value = value.partition("\0")[0]
+
             elif "AUTO_BITFIELD" in map[elem]:
-                for i in range(0, 7):
+                for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if value & 0x01 else DISABLED
-                    self._current_status[AUTO_BITFIELD_MAP[i]] = setting
+                    self._current_status[AUTO_BITFIELD_MAP[item]] = setting
                     value = value >> 1
                 continue
             self._current_status[map[elem]] = value
 
-    def checksum(self, buffer):
-        """Compute check byte"""
-        buffer = bytes(buffer, "utf-8")
-        return "%0.2X" % (sum(buffer) % 256)
-
-    async def _send_msg(self, msg, data=None):
+    async def _send_msg(self, msg_id, data=None, key=None):
         """Send command to espresso machine"""
 
-        _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
+        def checksum(buffer):
+            """Compute check byte"""
+            buffer = bytes(buffer, "utf-8")
+            return "%0.2X" % (sum(buffer) % 256)
 
-        """Connect if we don't have an active connection"""
-        if self._writer is None:
-            if not await self.connect():
-                _LOGGER.debug("Connectin failed, not sending {}".format(msg))
-                return
+        """Prevent race conditions - can be called from different tasks"""
+        async with self._lock:
+            msg = MSGS[msg_id]
 
-        """Add read/write and check bytes"""
-        plaintext = msg.msg_type + msg.msg
+            _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
-        if data is not None:
-            plaintext += data
+            """Connect if we don't have an active connection"""
+            await self.connect()
 
-        plaintext += self.checksum(plaintext)
+            """Add read/write and check bytes"""
+            plaintext = msg.msg_type + msg.msg
 
-        loop = asyncio.get_event_loop()
-        fn = partial(self._cipher.encrypt, plaintext)
-        ciphertext = "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
+            """If a key was provided, replace the second byte of the message"""
+            if key:
+                plaintext = plaintext[:3] + key + plaintext[5:]
 
-        self._writer.write(bytes(ciphertext, "utf-8"))
-        await self._writer.drain()
+            if data is not None:
+                plaintext += data
 
-        """Remember that we're waiting for a response"""
-        self._responses_waiting.append(msg.msg)
-        _LOGGER.debug("Now waiting for {}".format(self._responses_waiting))
+            """Add the check byte"""
+            plaintext += checksum(plaintext)
 
-        """Note when the command was sent"""
-        self._start_time = datetime.now()
+            loop = asyncio.get_event_loop()
+            fn = partial(self._cipher.encrypt, plaintext)
+            ciphertext = (
+                "@" + (await loop.run_in_executor(None, fn)).decode("utf-8") + "%"
+            )
+
+            self._writer.write(bytes(ciphertext, "utf-8"))
+            await self._writer.drain()
+
+            """Remember that we're waiting for a response"""
+            self._responses_waiting.append(msg.msg)
+            _LOGGER.debug("Now waiting for {}".format(self._responses_waiting))
+
+            """Note when the command was sent"""
+            self._start_time = datetime.now()
+
+            _LOGGER.debug("Finished sending")
 
 
 class AuthFail(BaseException):

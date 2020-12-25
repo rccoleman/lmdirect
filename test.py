@@ -1,6 +1,6 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
-from lmdirect.msgs import Msg, MSGS
+from lmdirect.msgs import AUTO_BITFIELD_MAP
 
 from lmdirect.const import *
 
@@ -36,12 +36,12 @@ class lmtest:
 
         return creds
 
-    def update(self, data, finished):
-        _LOGGER.debug(
-            "Updated: {}, {}".format(
-                self.lmdirect.current_status, "Finished" if finished else "Waiting"
-            )
-        )
+    def update(self, **kwargs):
+        _LOGGER.debug("Updated: {}".format(self.lmdirect.current_status))
+
+    async def raw_callback(self, key, data):
+        self.lmdirect.deregister_raw_callback(key)
+        print(f"Raw callback: {data}")
 
     async def poll_status_task(self):
         """Send periodic status requests"""
@@ -63,6 +63,7 @@ class lmtest:
 
         self.lmdirect = LMDirect(creds)
         self.lmdirect.register_callback(self.update)
+        # self.lmdirect.register_raw_callback(Msg.GET_AUTO_SCHED, self.raw_callback)
 
         self._run = True
 
@@ -72,19 +73,54 @@ class lmtest:
 
         while True:
             try:
-                print("\n1 = ON, 2 = OFF, 3 = Status, Other = quit: ")
+                print(
+                    "\n1=Power, 2=Status, 3=Coffee Temp, 4=Steam Temp, 5=PB on/off, 6=Auto on/off enable/disable, 7=Dose, 8=Tea Dose, 8=PB on/off: "
+                )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
                 ).rstrip()
 
-                if response == "1":
-                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_ON_DATA)
-                elif response == "2":
-                    await self.lmdirect.send_msg(MSGS[Msg.POWER], Msg.POWER_OFF_DATA)
-                elif response == "3":
-                    print(self.lmdirect.current_status)
-                else:
+                args = response.split()
+
+                def check_args(num_args):
+                    if len(args) >= num_args:
+                        return True
+                    else:
+                        if len(args) > 0:
+                            _LOGGER.error("Not enough arguments")
+                        return False
+
+                if not check_args(1):
                     break
+
+                if args[0] == "1":
+                    if check_args(1):
+                        await self.lmdirect.set_power(args[1] == "on")
+                elif args[0] == "2":
+                    print(self.lmdirect.current_status)
+                elif args[0] == "3":
+                    if check_args(1):
+                        await self.lmdirect.set_coffee_temp(args[1])
+                elif args[0] == "4":
+                    if check_args(1):
+                        await self.lmdirect.set_steam_temp(args[1])
+                elif args[0] == "5":
+                    if check_args(1):
+                        await self.lmdirect.set_prebrewing_enable(args[1] == "on")
+                elif args[0] == "6":
+                    if check_args(2):
+                        await self.lmdirect.set_auto_on_off(
+                            AUTO_BITFIELD_MAP[int(args[1])], args[2] == "on"
+                        )
+                elif args[0] == "7":
+                    if check_args(2):
+                        await self.lmdirect.set_dose(args[1], args[2])
+                elif args[0] == "8":
+                    if check_args(2):
+                        await self.lmdirect.set_dose_tea(args[1])
+                elif args[0] == "9":
+                    if check_args(3):
+                        await self.lmdirect.set_prebrew_times(args[1], args[2], args[3])
             except KeyboardInterrupt:
                 break
 

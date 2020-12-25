@@ -53,7 +53,7 @@ with open(filename) as json_file:
                 chars = plaintext[i : i + 2]
                 print(chars, end=" ")
 
-            print(f": ({checksum(plaintext[:-2])})")
+            print("")
 
         except KeyError:
             pass

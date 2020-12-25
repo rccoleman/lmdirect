@@ -1,6 +1,6 @@
 """Constants for lmdirect"""
-ENABLED = "ENABLED"
-DISABLED = "DISABLED"
+ENABLED = "Enabled"
+DISABLED = "Disabled"
 
 GW_URL = "https://gw.lamarzocco.io/v1/home/machines"
 TOKEN_URL = "https://cms.lamarzocco.io/oauth/v2/token"
