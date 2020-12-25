@@ -36,14 +36,10 @@ class lmtest:
 
         return creds
 
-    def update(self, data, finished, **kwargs):
-        _LOGGER.debug(
-            "Updated: {}, {}".format(
-                self.lmdirect.current_status, "Finished" if finished else "Waiting"
-            )
-        )
+    def update(self, **kwargs):
+        _LOGGER.debug("Updated: {}".format(self.lmdirect.current_status))
 
-    async def raw_callback(self, key, data, **kwargs):
+    async def raw_callback(self, key, data):
         self.lmdirect.deregister_raw_callback(key)
         print(f"Raw callback: {data}")
 
@@ -78,7 +74,7 @@ class lmtest:
         while True:
             try:
                 print(
-                    "\n1 = Power, 2 = Status, 3 = Set Coffee Temp, 4 = Set Steam Temp, 5 = Set Prebrewing Enable, 6 = Set auto on/off enable, Other = quit: "
+                    "\n1=Power, 2=Status, 3=Coffee Temp, 4=Steam Temp, 5=PB on/off, 6=Auto on/off enable/disable, 7=Dose, 8=Tea Dose, 8=PB on/off: "
                 )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
@@ -110,14 +106,21 @@ class lmtest:
                         await self.lmdirect.set_steam_temp(args[1])
                 elif args[0] == "5":
                     if check_args(1):
-                        await self.lmdirect.send_prebrewing_enable(args[1] == "on")
+                        await self.lmdirect.set_prebrewing_enable(args[1] == "on")
                 elif args[0] == "6":
                     if check_args(2):
                         await self.lmdirect.set_auto_on_off(
                             AUTO_BITFIELD_MAP[int(args[1])], args[2] == "on"
                         )
-                else:
-                    break
+                elif args[0] == "7":
+                    if check_args(2):
+                        await self.lmdirect.set_dose(args[1], args[2])
+                elif args[0] == "8":
+                    if check_args(2):
+                        await self.lmdirect.set_dose_tea(args[1])
+                elif args[0] == "9":
+                    if check_args(3):
+                        await self.lmdirect.set_prebrew_times(args[1], args[2], args[3])
             except KeyboardInterrupt:
                 break
 
