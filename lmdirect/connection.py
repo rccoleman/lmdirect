@@ -233,10 +233,9 @@ class Connection:
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
             finished = not len(self._responses_waiting)
-            if finished:
-                _LOGGER.debug("Received all responses")
-            else:
-                _LOGGER.debug("Waiting for {}".format(self._responses_waiting))
+            _LOGGER.debug("Received all responses") if finished else _LOGGER.debug(
+                "Waiting for {}".format(self._responses_waiting)
+            )
 
         return finished
 
