@@ -67,6 +67,9 @@ class LMDirect(Connection):
         if key in self._raw_callback_list:
             self._raw_callback_list.remove(key)
 
+    async def connect(self):
+        await self._connect()
+
     async def request_status(self):
         """Request all status elements"""
 

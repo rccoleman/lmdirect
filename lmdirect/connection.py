@@ -75,7 +75,7 @@ class Connection:
         """Done with the cloud API"""
         await client.aclose()
 
-    async def connect(self):
+    async def _connect(self):
         """Conmnect to espresso machine"""
         if self._connected:
             return
@@ -292,7 +292,7 @@ class Connection:
             _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
             """Connect if we don't have an active connection"""
-            await self.connect()
+            await self._connect()
 
             """Add read/write and check bytes"""
             plaintext = msg.msg_type + msg.msg
