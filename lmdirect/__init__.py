@@ -72,13 +72,10 @@ class LMDirect(Connection):
 
     async def request_status(self):
         """Request all status elements"""
+        msgs = [Msg.GET_STATUS, Msg.GET_CONFIG, Msg.GET_AUTO_SCHED, Msg.GET_DATETIME]
 
         _LOGGER.debug("Requesting status")
-        await self._send_msg(Msg.GET_STATUS)
-        await self._send_msg(Msg.GET_CONFIG)
-        await self._send_msg(Msg.GET_AUTO_SCHED)
-        # await self._send_msg(Msg.GET_SER_NUM)
-        await self._send_msg(Msg.GET_DATETIME)
+        await asyncio.gather(*[self._send_msg(msg) for msg in msgs])
 
         """Also wait for current temp"""
         self._responses_waiting.append(MSGS[Msg.GET_TEMP_REPORT].msg)
