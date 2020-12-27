@@ -9,6 +9,7 @@ from datetime import timedelta, datetime
 from functools import partial
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
 from .const import *
@@ -18,40 +19,40 @@ import logging
 class Connection:
     def __init__(self, creds):
         """Init LMDirect"""
-        self._reader = self._writer = None
+        self._reader = None
+        self._writer = None
         self._read_response_task = None
         self._reaper_task = None
         self._current_status = {}
         self._responses_waiting = []
-        self._run = False
+        self._run = True
         self._callback_list = []
         self._raw_callback_list = []
         self._cipher = None
         self._creds = creds
-        self._key = None
         self._start_time = None
         self._connected = False
         self._lock = asyncio.Lock()
         self._first_time = True
 
-    async def retrieve_key(self):
+    async def retrieve_key(self, creds):
         """Machine data inialization"""
         client = AsyncOAuth2Client(
-            client_id=self._creds[CLIENT_ID],
-            client_secret=self._creds[CLIENT_SECRET],
+            client_id=creds[CLIENT_ID],
+            client_secret=creds[CLIENT_SECRET],
             token_endpoint=TOKEN_URL,
         )
 
         headers = {
-            "client_id": self._creds[CLIENT_ID],
-            "client_secret": self._creds[CLIENT_SECRET],
+            "client_id": creds[CLIENT_ID],
+            "client_secret": creds[CLIENT_SECRET],
         }
 
         try:
             await client.fetch_token(
                 url=TOKEN_URL,
-                username=self._creds[USERNAME],
-                password=self._creds[PASSWORD],
+                username=creds[USERNAME],
+                password=creds[PASSWORD],
                 headers=headers,
             )
         except OAuthError:
@@ -66,54 +67,57 @@ class Connection:
         cust_info = await client.get(CUSTOMER_URL)
         if cust_info is not None:
             fleet = cust_info.json()["data"]["fleet"][0]
-            self._key = fleet["communicationKey"]
-            self._serial_number = fleet["machine"]["serialNumber"]
-            self._machine_name = fleet["name"]
-            self._model_name = fleet["machine"]["model"]["name"]
-            self._cipher = AESCipher(self._key)
+            creds[KEY] = fleet["communicationKey"]
+            creds[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
+            creds[MACHINE_NAME] = fleet["name"]
+            creds[MODEL_NAME] = fleet["machine"]["model"]["name"]
 
         """Done with the cloud API"""
         await client.aclose()
 
+        return creds
+
     async def _connect(self):
         """Conmnect to espresso machine"""
         if self._connected:
-            return
+            return self._creds
 
         _LOGGER.debug("Connecting")
 
-        if not self._key:
+        if not self._creds.get(KEY):
             try:
-                await self.retrieve_key()
+                self._creds.update(await self.retrieve_key(self._creds))
             except Exception as err:
                 _LOGGER.debug("Exception retrieving key: {}".format(err))
                 raise
+
+        if not self._cipher:
+            self._cipher = AESCipher(self._creds[KEY])
 
         TCP_PORT = 1774
 
         """Connect to the machine"""
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self._creds[IP_ADDR], TCP_PORT), timeout=3
+                asyncio.open_connection(self._creds[HOST], TCP_PORT), timeout=3
             )
         except asyncio.TimeoutError:
             _LOGGER.warning("Connection Timeout, skipping")
-            return False
+            return None
 
         except Exception as err:
             _LOGGER.error("Cannot connect to machine: {}".format(err))
-            return False
+            return None
 
         """Start listening for responses & sending status requests"""
         await self.start_read_task()
 
         self._connected = True
         _LOGGER.debug("Finished Connecting")
-        return True
+
+        return self._creds
 
     async def start_read_task(self):
-        self._run = True
-
         """Start listening for responses & sending status requests"""
         loop = asyncio.get_event_loop()
         self._read_response_task = loop.create_task(
@@ -130,6 +134,10 @@ class Connection:
 
         if self._writer is not None:
             self._writer.close()
+
+        if self._read_response_task:
+            self._read_response_task.cancel()
+
         self._reader = self._writer = None
         self._connected = False
         _LOGGER.debug("Finished closing")
@@ -137,7 +145,7 @@ class Connection:
     async def reaper(self):
         _LOGGER.debug("Starting reaper")
         try:
-            await asyncio.gather(*[self._read_response_task])
+            await asyncio.gather(self._read_response_task)
         except Exception as err:
             _LOGGER.error(f"Exception in read_response_task: {err}")
 
@@ -292,6 +300,9 @@ class Connection:
 
             """Connect if we don't have an active connection"""
             await self._connect()
+
+            if not self._writer:
+                _LOGGER.error(f"self._writer={self._writer}")
 
             """Add read/write and check bytes"""
             plaintext = msg.msg_type + msg.msg

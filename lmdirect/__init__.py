@@ -1,5 +1,5 @@
 """lmdierct"""
-from lmdirect.const import DISABLED, ENABLED
+from lmdirect.const import DISABLED, ENABLED, MACHINE_NAME, MODEL_NAME, SERIAL_NUMBER
 from .connection import Connection
 from .msgs import (
     DOSE_TEA,
@@ -38,17 +38,17 @@ class LMDirect(Connection):
     @property
     def machine_name(self):
         """Return the name of the machine"""
-        return self._machine_name
+        return self._creds[MACHINE_NAME]
 
     @property
     def serial_number(self):
         """Return serial number"""
-        return self._serial_number
+        return self._creds[SERIAL_NUMBER]
 
     @property
     def model_name(self):
         """Return model name"""
-        return self._model_name
+        return self._creds[MODEL_NAME]
 
     def register_callback(self, callback):
         """Register callback for updates"""
@@ -68,7 +68,7 @@ class LMDirect(Connection):
             self._raw_callback_list.remove(key)
 
     async def connect(self):
-        await self._connect()
+        return await self._connect()
 
     async def request_status(self):
         """Request all status elements"""

@@ -27,7 +27,7 @@ class lmtest:
             exit(1)
 
         creds = {
-            IP_ADDR: data["ip_addr"],
+            HOST: data["host"],
             CLIENT_ID: data["client_id"],
             CLIENT_SECRET: data["client_secret"],
             USERNAME: data["username"],
@@ -125,7 +125,13 @@ class lmtest:
                 break
 
         self._run = False
-        await asyncio.gather(*[self._poll_status_task])
+
+        self._poll_status_task.cancel()
+
+        try:
+            await asyncio.gather(self._poll_status_task)
+        except asyncio.CancelledError:
+            pass
 
         await self.lmdirect.close()
 
