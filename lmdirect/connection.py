@@ -37,6 +37,8 @@ class Connection:
 
     async def retrieve_key(self, creds):
         """Machine data inialization"""
+        _LOGGER.debug("Retrieving key")
+
         client = AsyncOAuth2Client(
             client_id=creds[CLIENT_ID],
             client_secret=creds[CLIENT_SECRET],
@@ -56,11 +58,12 @@ class Connection:
                 headers=headers,
             )
         except OAuthError:
+            _LOGGER.error("Authorization failure")
             await client.aclose()
             raise AuthFail
 
         except Exception as err:
-            print("Caught: {}, {}".format(type(err), err))
+            _LOGGER.error("Caught: {}, {}".format(type(err), err))
             await self.close()
             raise AuthFail
 
@@ -75,6 +78,7 @@ class Connection:
         """Done with the cloud API"""
         await client.aclose()
 
+        _LOGGER.debug(f"Finished retrieving key")
         return creds
 
     async def _connect(self):
@@ -299,7 +303,11 @@ class Connection:
             _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
             """Connect if we don't have an active connection"""
-            await self._connect()
+            result = await self._connect()
+
+            if not result:
+                _LOGGER.error("Connection failed")
+                return
 
             if not self._writer:
                 _LOGGER.error(f"self._writer={self._writer}")
