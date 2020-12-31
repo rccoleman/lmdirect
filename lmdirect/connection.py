@@ -9,7 +9,6 @@ from datetime import timedelta, datetime
 from functools import partial
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
 from .const import *
@@ -58,14 +57,12 @@ class Connection:
                 headers=headers,
             )
         except OAuthError:
-            _LOGGER.error("Authorization failure")
             await client.aclose()
-            raise AuthFail
+            raise AuthFail("Authorization failure")
 
         except Exception as err:
-            _LOGGER.error("Caught: {}, {}".format(type(err), err))
             await self.close()
-            raise AuthFail
+            raise AuthFail(f"Caught: {type(err)}, {err}")
 
         cust_info = await client.get(CUSTOMER_URL)
         if cust_info is not None:
@@ -92,26 +89,22 @@ class Connection:
             try:
                 self._creds.update(await self.retrieve_key(self._creds))
             except Exception as err:
-                _LOGGER.debug("Exception retrieving key: {}".format(err))
-                raise
+                raise ConnectionFail(f"Exception retrieving key: {err}")
 
         if not self._cipher:
             self._cipher = AESCipher(self._creds[KEY])
 
-        TCP_PORT = 1774
-
         """Connect to the machine"""
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self._creds[HOST], TCP_PORT), timeout=3
+                asyncio.open_connection(self._creds[HOST], self._creds[PORT]), timeout=3
             )
         except asyncio.TimeoutError:
             _LOGGER.warning("Connection Timeout, skipping")
             return None
 
         except Exception as err:
-            _LOGGER.error("Cannot connect to machine: {}".format(err))
-            return None
+            raise ConnectionFail(f"Cannot connect to machine: {err}")
 
         """Start listening for responses & sending status requests"""
         await self.start_read_task()
@@ -299,18 +292,17 @@ class Connection:
         """Prevent race conditions - can be called from different tasks"""
         async with self._lock:
             msg = MSGS[msg_id]
-
+            _LOGGER.debug("got in here somehow")
             _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
             """Connect if we don't have an active connection"""
             result = await self._connect()
 
             if not result:
-                _LOGGER.error("Connection failed")
-                return
+                raise ConnectionFail("Connection failed")
 
             if not self._writer:
-                _LOGGER.error(f"self._writer={self._writer}")
+                raise ConnectionFail(f"self._writer={self._writer}")
 
             """Add read/write and check bytes"""
             plaintext = msg.msg_type + msg.msg
@@ -345,4 +337,14 @@ class Connection:
 
 
 class AuthFail(BaseException):
-    """Error to indicate there is invalid auth."""
+    """Error to indicate there is invalid auth"""
+
+    def __init__(msg):
+        _LOGGER.error(msg)
+
+
+class ConnectionFail(BaseException):
+    """Error to indicate there is no Connection"""
+
+    def __init__(msg):
+        _LOGGER.error(msg)

@@ -7,6 +7,7 @@ TOKEN_URL = "https://cms.lamarzocco.io/oauth/v2/token"
 CUSTOMER_URL = "https://cms.lamarzocco.io/api/customer"
 
 HOST = "host"
+PORT = "port"
 CLIENT_ID = "client_id"
 CLIENT_SECRET = "client_secret"
 USERNAME = "username"

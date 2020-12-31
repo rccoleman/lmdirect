@@ -14,8 +14,8 @@ from .msgs import (
     AUTO_SCHED_MAP,
     AUTO_BITFIELD_MAP,
     DOSE_K1,
-    TEMP_COFFEE,
-    TEMP_STEAM,
+    TSET_COFFEE,
+    TSET_STEAM,
     TON_PREBREWING_K1,
     TOFF_PREBREWING_K1,
 )
@@ -24,6 +24,7 @@ import asyncio
 import logging
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 class LMDirect(Connection):
@@ -86,7 +87,8 @@ class LMDirect(Connection):
 
     async def close(self):
         """Wait for the read task to exit"""
-        await asyncio.gather(*[self._reaper_task])
+        if self._reaper_task:
+            await asyncio.gather(self._reaper_task)
         await self._close()
 
     def call_callbacks(self, **kwargs):
@@ -115,7 +117,7 @@ class LMDirect(Connection):
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_auto_on_off(self, field_name, value):
+    async def set_auto_on_off(self, day_of_week=None, enable=None):
         """Configure auto on/off"""
 
         async def auto_on_off_callback(key, data):
@@ -135,20 +137,29 @@ class LMDirect(Connection):
 
                 """Extract value for this field"""
                 orig_value = int(data[index : index + size], 16)
-                bitmask = 0x01 << self.findkey(field_name, AUTO_BITFIELD_MAP)
+                bitmask = 0x01 << self.findkey(day_of_week, AUTO_BITFIELD_MAP)
                 new_value = self.convert_to_ascii(
-                    orig_value | bitmask if value else orig_value & ~bitmask, 1
+                    orig_value | bitmask if enable else orig_value & ~bitmask, 1
                 )
 
                 buf_to_send = data[:index] + new_value + data[index + size :]
 
-                self._current_status[field_name] = ENABLED if value else DISABLED
+                self._current_status[day_of_week] = ENABLED if enable else DISABLED
 
-                await self._send_msg(Msg.SET_AUTO_SCHED, buf_to_send)
+                _LOGGER.error(f"SET: {Msg.SET_AUTO_SCHED} {buf_to_send}")
+                _LOGGER.error(f"GET: {Msg.GET_AUTO_SCHED}")
+
+                await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
+
                 self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
+
+        _LOGGER.error(f"Called with day_of_week:{day_of_week} enable:{enable}")
+        if None in [day_of_week, enable]:
+            msg = f"Some parameters invalid {day_of_week} {enable}"
+            raise InvalidInput(msg)
 
         self.register_raw_callback(Msg.GET_AUTO_SCHED, auto_on_off_callback)
         await self._send_msg(Msg.GET_AUTO_SCHED)
@@ -157,7 +168,9 @@ class LMDirect(Connection):
         """Set global auto on/off"""
         await self.set_auto_on_off(GLOBAL_AUTO, value)
 
-    async def set_auto_on_off_hours(self, field_name, hour_on, hour_off):
+    async def set_auto_on_off_hours(
+        self, day_of_week=None, hour_on=None, hour_off=None
+    ):
         """Configure auto on/off"""
 
         async def auto_on_off_callback(key, data):
@@ -169,7 +182,7 @@ class LMDirect(Connection):
 
             try:
                 """Find the "on" element"""
-                elem = self.findkey(field_name.replace("AUTO", "ON"), AUTO_SCHED_MAP)
+                elem = self.findkey(day_of_week.replace("AUTO", "ON"), AUTO_SCHED_MAP)
 
                 """The strings are ASCII-encoded hex, so each value takes 2 bytes and there 2 of them"""
                 index = elem.index * 2
@@ -183,22 +196,29 @@ class LMDirect(Connection):
                     + data[index + size :]
                 )
 
-                self._current_status[field_name.replace("AUTO", "ON")] = hour_on
-                self._current_status[field_name.replace("AUTO", "OFF")] = hour_off
+                self._current_status[day_of_week.replace("AUTO", "ON")] = hour_on
+                self._current_status[day_of_week.replace("AUTO", "OFF")] = hour_off
 
-                _LOGGER.info(f"Orig data: {data}")
-                _LOGGER.info(f"New data:  {buf_to_send}")
-                await self._send_msg(Msg.SET_AUTO_SCHED, buf_to_send)
+                await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
                 self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
+                raise
+
+        if None in [day_of_week, hour_on, hour_off]:
+            msg = f"Some parameters invalid {day_of_week} {hour_on} {hour_off}"
+            raise InvalidInput(msg)
 
         self.register_raw_callback(Msg.GET_AUTO_SCHED, auto_on_off_callback)
         await self._send_msg(Msg.GET_AUTO_SCHED)
 
-    async def set_dose(self, key, pulses):
+    async def set_dose(self, key=None, pulses=None):
         """Set the coffee boiler temp in Celcius"""
+
+        if None in [key, pulses]:
+            msg = f"set_dose: Some parameters not specified {key} {pulses}"
+            raise InvalidInput(msg)
 
         if isinstance(pulses, str):
             pulses = int(pulses)
@@ -208,8 +228,8 @@ class LMDirect(Connection):
 
         """Validate input"""
         if not (1 <= pulses <= 1000 and 1 <= key <= 5):
-            _LOGGER.error(f"Invalid values pulses:{pulses} key:{key}")
-            return False
+            msg = f"set_dose: Invalid values pulses:{pulses} key:{key}"
+            raise InvalidInput(msg)
 
         self._current_status[DOSE_K1.replace("1", str(key))] = pulses
 
@@ -219,16 +239,19 @@ class LMDirect(Connection):
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_dose_tea(self, seconds):
+    async def set_dose_tea(self, seconds=None):
         """Set the coffee boiler temp in Celcius"""
+
+        if not seconds:
+            raise InvalidInput("set_dose_tea: Seconds not specified")
 
         if isinstance(seconds, str):
             seconds = int(seconds)
 
         """Validate input"""
         if not (1 <= seconds <= 30):
-            _LOGGER.error(f"Invalid values seconds:{seconds}")
-            return False
+            msg = f"Invalid values seconds:{seconds}"
+            raise InvalidInput(msg)
 
         self._current_status[DOSE_TEA] = seconds
 
@@ -237,8 +260,13 @@ class LMDirect(Connection):
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_prebrew_times(self, key, time_on, time_off):
+    async def set_prebrew_times(self, key=None, time_on=None, time_off=None):
         """Set the coffee boiler temp in Celcius"""
+
+        if None in [key, time_on, time_off]:
+            raise InvalidInput(
+                "set_prebrew_times: Some parameters invalid {key} {time_on} {time_off}"
+            )
 
         if isinstance(time_on, str):
             time_on = float(time_on)
@@ -251,10 +279,8 @@ class LMDirect(Connection):
 
         """Validate input"""
         if not (0 <= time_on <= 5.9 and 0 <= time_off <= 5.9 and 1 <= key <= 4):
-            _LOGGER.error(
-                f"Invalid values time_on:{time_on} off_time:{time_off} key:{key}"
-            )
-            return False
+            msg = f"Invalid values time_on:{time_on} off_time:{time_off} key:{key}"
+            raise InvalidInput(msg)
 
         self._current_status[TON_PREBREWING_K1.replace("1", str(key))] = time_on
         self._current_status[TOFF_PREBREWING_K1.replace("1", str(key))] = time_off
@@ -262,39 +288,45 @@ class LMDirect(Connection):
         """set "on" time"""
         key_on = self.convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
         data = self.convert_to_ascii(int(time_on * 10), size=1)
-        await self._send_msg(Msg.SET_PB_ON, key=key_on, data=data)
+        await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_on, data=data)
 
         """set "off" time"""
         key_off = self.convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
         data = self.convert_to_ascii(int(time_off * 10), size=1)
-        await self._send_msg(Msg.SET_PB_OFF, key=key_off, data=data)
+        await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_off, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_PREBREW)
 
-    async def set_coffee_temp(self, temp):
+    async def set_coffee_temp(self, temp=None):
         """Set the coffee boiler temp in Celcius"""
+
+        if not temp:
+            raise InvalidInput("set_coffee__temp: Temperature not specified")
 
         if isinstance(temp, str):
             temp = float(temp)
 
         temp = round(temp, 1)
 
-        self._current_status[TEMP_COFFEE] = temp
+        self._current_status[TSET_COFFEE] = temp
 
         data = self.convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
         await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
         self._call_callbacks(entity_type=TYPE_COFFEE_TEMP)
 
-    async def set_steam_temp(self, temp):
+    async def set_steam_temp(self, temp=None):
         """Set the steam boiler temp in Celcius"""
+
+        if not temp:
+            raise InvalidInput("set_steam_temp: Temperature not specified")
 
         if isinstance(temp, str):
             temp = float(temp)
 
         temp = round(temp, 1)
 
-        self._current_status[TEMP_STEAM] = temp
+        self._current_status[TSET_STEAM] = temp
 
         data = self.convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
@@ -307,3 +339,10 @@ class LMDirect(Connection):
         await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_PREBREW)
+
+
+class InvalidInput(BaseException):
+    """Error to indicate there is no Connection"""
+
+    def __init__(msg):
+        _LOGGER.error(msg)

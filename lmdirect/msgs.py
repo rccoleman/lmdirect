@@ -276,8 +276,7 @@ class Msg:
     SET_AUTO_SCHED = 11
     SET_DOSE = 12
     SET_DOSE_TEA = 13
-    SET_PB_ON = 14
-    SET_PB_OFF = 15
+    SET_PREBREW_TIMES = 14
 
     """Dose command starts at 0x14 for the first key and increments by 2 thereafter"""
     DOSE_KEY_BASE = 0x14
@@ -331,7 +330,6 @@ MSGS = {
     Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", WRITE_RESULT_MAP),
     # Write config for keys (last byte is the key number, starting at 0, and will be replaced)
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", WRITE_RESULT_MAP),
-    Msg.SET_PB_ON: Msg(Msg.WRITE, "000C0001", WRITE_RESULT_MAP),
-    Msg.SET_PB_OFF: Msg(Msg.WRITE, "00100001", WRITE_RESULT_MAP),
     Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", WRITE_RESULT_MAP),
+    Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", WRITE_RESULT_MAP),
 }
