@@ -15,7 +15,7 @@ Once you have the client ID, client secret, username, and passowrd, construct a 
 ```
 {
     "filename": "dose_tea.json",
-    "key": "\u00fd\u008fq\u00cd\u00e7\u00e4-\u0089\u0099\u0080\u0090agMaaX\u00e0\u0005\u00cdy\u00a0\u001f\u0097\u00db\u00eb\u009d\u00fb\u00cd\u00a4Y\u00bd",
+    "key": "long-key-string",
     "ip_addr": "ip_address",
     "client_id": "a_long_string",
     "client_secret": "another_long_string",
