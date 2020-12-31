@@ -113,7 +113,7 @@ class LMDirect(Connection):
     async def set_power(self, power):
         """Send power on or power off commands"""
         value = self.convert_to_ascii(0x01 if power else 0x00, size=1)
-        await self._send_msg(Msg.SET_POWER, value)
+        await self._send_msg(Msg.SET_POWER, data=value)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 
@@ -145,9 +145,6 @@ class LMDirect(Connection):
                 buf_to_send = data[:index] + new_value + data[index + size :]
 
                 self._current_status[day_of_week] = ENABLED if enable else DISABLED
-
-                _LOGGER.error(f"SET: {Msg.SET_AUTO_SCHED} {buf_to_send}")
-                _LOGGER.error(f"GET: {Msg.GET_AUTO_SCHED}")
 
                 await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
