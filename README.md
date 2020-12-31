@@ -8,10 +8,8 @@ This is a prototype library for interacting with the local network API of a La M
 
 ### Preparation & Installation
 
-Using this library is an advanced exercise. You'll need to do the following:
-
--   Find the `client_id` and `client_secret` for your machine by sniffing the network traffic while operating the mobile app (`mitmproxy` is good for this). You'll need to capture a token request to https://cms.lamarzocco.io/oauth/v2/token and find the `client_id` and `client_secret` in the request.
--   Find the username & password that you used to register with La Marzocco when you set up remote access. The username is most likely the email address that you used for registration.
+Using this library is an advanced exercise.  You'll need to do the following:
+* Find the `client_id` and `client_secret` for your machine by following [these instructions](https://github.com/rccoleman/lmdirect/blob/master/Credentials.md).  You'll need the username & password that you used to register with La Marzocco when you set up remote access, and the username is most likely the email address that you used for registration.
 
 Once you have the client ID, client secret, username, and passowrd, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
 
@@ -29,9 +27,9 @@ Once you have the client ID, client secret, username, and passowrd, construct a 
 
 Now, run `python test.py` and you should get a prompt that looks like this:
 
-`1 = ON, 2 = OFF, 3 = Status, Other = quit:`
+`1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <sec>, 8=Tea Dose <sec>, 8=PB times <on off>:`
 
-You can hit `1` to turn the machine on, `2` to turn it off, `3` to dump a dict of all the config and status items that it's received from your machine, and any other key to quit. The app requests all status & config information every 5 seconds, so you should see the values change when the state of the machine changes.
+The app requests all status & config information every 20 seconds, so you should see the values change when the state of the machine changes.
 
 The machine can only accept a single connection at a time, but the library keeps the connection open long enough only to send commands and receive the responses. Both the mobile app and this library will attempt to reconnect if the port is in use, but you may need to wait a bit while using the mobile app for it to try again.
 
