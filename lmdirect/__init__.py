@@ -272,7 +272,7 @@ class LMDirect(Connection):
             time_on = float(time_on)
 
         if isinstance(time_off, str):
-            off_time = float(time_off)
+            time_off = float(time_off)
 
         if isinstance(key, str):
             key = int(key)
