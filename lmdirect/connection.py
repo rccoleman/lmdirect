@@ -24,7 +24,6 @@ from functools import partial
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 
 class Connection:
@@ -33,7 +32,7 @@ class Connection:
         self._reader = None
         self._writer = None
         self._read_response_task = None
-        self._reaper_task = None
+        self._read_reaper_task = None
         self._current_status = {}
         self._responses_waiting = []
         self._run = True
@@ -158,7 +157,9 @@ class Connection:
         )
 
         """Reap the results and any any exceptions"""
-        self._reaper_task = loop.create_task(self.reaper(), name="Reaper")
+        self._read_reaper_task = loop.create_task(
+            self.read_reaper(), name="Read Reaper"
+        )
 
     async def _close(self):
         """Close the connection"""
@@ -175,8 +176,8 @@ class Connection:
         self._connected = False
         _LOGGER.debug("Finished closing")
 
-    async def reaper(self):
-        _LOGGER.debug("Starting reaper")
+    async def read_reaper(self):
+        _LOGGER.debug("Starting read reaper")
         try:
             await asyncio.gather(self._read_response_task)
         except Exception as err:
@@ -186,7 +187,7 @@ class Connection:
         self._read_response_task = None
         self._first_time = False
 
-        _LOGGER.debug("Finished reaping")
+        _LOGGER.debug("Finished reaping read task")
 
     def _call_callbacks(self, **kwargs):
         """Call the callbacks"""
@@ -280,9 +281,8 @@ class Connection:
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
             finished = not len(self._responses_waiting)
-            _LOGGER.debug("Received all responses") if finished else _LOGGER.debug(
-                "Waiting for {}".format(self._responses_waiting)
-            )
+            if finished:
+                _LOGGER.debug("Received all responses")
 
         return finished
 
@@ -380,7 +380,6 @@ class Connection:
 
             """Remember that we're waiting for a response"""
             self._responses_waiting.append(msg.msg)
-            _LOGGER.debug("Now waiting for {}".format(self._responses_waiting))
 
             """Note when the command was sent"""
             self._start_time = datetime.now()
