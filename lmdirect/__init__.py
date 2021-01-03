@@ -101,8 +101,8 @@ class LMDirect(Connection):
 
     async def close(self):
         """Wait for the read task to exit"""
-        if self._reaper_task:
-            await asyncio.gather(self._reaper_task)
+        if self._read_reaper_task:
+            await asyncio.gather(self._read_reaper_task)
         await self._close()
 
     def call_callbacks(self, **kwargs):
