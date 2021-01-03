@@ -1,27 +1,27 @@
 """lmdirect connection class"""
-from .const import *
+import asyncio
+import logging
+from datetime import datetime, timedelta
+from functools import partial
+
+from authlib.integrations.base_client.errors import OAuthError
+from authlib.integrations.httpx_client import AsyncOAuth2Client
+
 from .aescipher import AESCipher
+from .const import *
 from .msgs import (
     AUTO_BITFIELD,
+    AUTO_BITFIELD_MAP,
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
     FIRMWARE_VER,
     GATEWAY_DRINK_MAP,
-    Msg,
     MSGS,
-    AUTO_BITFIELD_MAP,
-    Elem,
     SERIAL_NUMBERS,
     UPDATE_AVAILABLE,
+    Elem,
+    Msg,
 )
-
-from authlib.integrations.base_client.errors import OAuthError
-from authlib.integrations.httpx_client import AsyncOAuth2Client
-import asyncio
-from datetime import timedelta, datetime
-from functools import partial
-
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 

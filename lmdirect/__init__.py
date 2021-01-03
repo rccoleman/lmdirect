@@ -1,31 +1,32 @@
 """lmdierct"""
+import asyncio
+import logging
+
 from lmdirect.const import DISABLED, ENABLED, MACHINE_NAME, MODEL_NAME, SERIAL_NUMBER
+
 from .connection import Connection
 from .msgs import (
     AUTO_BITFIELD,
+    AUTO_BITFIELD_MAP,
+    AUTO_SCHED_MAP,
+    DOSE_K1,
     DOSE_TEA,
     FIRMWARE_VER,
     GLOBAL_AUTO,
     MON_OFF,
     MON_ON,
+    MSGS,
+    PREBREWING_TOFF_K1,
+    PREBREWING_TON_K1,
+    TSET_COFFEE,
+    TSET_STEAM,
     TYPE_AUTO_ON_OFF,
     TYPE_COFFEE_TEMP,
     TYPE_MAIN,
     TYPE_PREBREW,
     TYPE_STEAM_TEMP,
     Msg,
-    MSGS,
-    AUTO_SCHED_MAP,
-    AUTO_BITFIELD_MAP,
-    DOSE_K1,
-    TSET_COFFEE,
-    TSET_STEAM,
-    PREBREWING_TON_K1,
-    PREBREWING_TOFF_K1,
 )
-import asyncio
-
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 

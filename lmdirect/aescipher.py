@@ -1,8 +1,8 @@
 import base64
-from Crypto.Cipher import AES
+import logging
 from math import ceil
 
-import logging
+from Crypto.Cipher import AES
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.INFO)
