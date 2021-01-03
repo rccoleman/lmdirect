@@ -1,4 +1,4 @@
-"""Local API commands for La Marzocco espresso machines"""
+"""Local API commands for La Marzocco espresso machines."""
 
 # Tags
 

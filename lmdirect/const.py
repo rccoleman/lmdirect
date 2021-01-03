@@ -1,7 +1,9 @@
-"""Constants for lmdirect"""
+"""Constants for the lmdirect package."""
+
 ENABLED = "Enabled"
 DISABLED = "Disabled"
 
+"""API endpoints for the La Marzocco CMS and gateway."""
 GW_URL = "https://gw.lamarzocco.io/v1/home/machines"
 TOKEN_URL = "https://cms.lamarzocco.io/oauth/v2/token"
 CUSTOMER_URL = "https://cms.lamarzocco.io/api/customer"
@@ -12,7 +14,7 @@ UPDATE_URL = (
     "https://gw.lamarzocco.io/v1/home/machines/updates-available?device=machine"
 )
 
-"""Config parameters"""
+"""Config parameters."""
 HOST = "host"
 PORT = "port"
 CLIENT_ID = "client_id"
