@@ -17,10 +17,11 @@ Once you have the client ID, client secret, username, and passowrd, construct a 
 {
     "filename": "dose_tea.json",
     "key": "long-key-string",
-    "ip_addr": "ip_address",
-    "client_id": "a_long_string",
+    "host": "ip_addr",
+    "port": "1774",
+    "client_id": "long_string",
     "client_secret": "another_long_string",
-    "username": "email@address.com",
+    "username": "email_address",
     "password": "password"
 }
 ```
