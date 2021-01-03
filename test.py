@@ -28,10 +28,12 @@ class lmtest:
 
         creds = {
             HOST: data["host"],
+            PORT: data["port"],
             CLIENT_ID: data["client_id"],
             CLIENT_SECRET: data["client_secret"],
             USERNAME: data["username"],
             PASSWORD: data["password"],
+            KEY: data.get("key", None),
         }
 
         return creds
@@ -74,7 +76,7 @@ class lmtest:
         while True:
             try:
                 print(
-                    "\n1=Power, 2=Status, 3=Coffee Temp, 4=Steam Temp, 5=PB on/off, 6=Auto on/off enable/disable, 7=Dose, 8=Tea Dose, 8=PB on/off: "
+                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <sec>, 8=Tea Dose <sec>, 8=PB times <on off>: "
                 )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)

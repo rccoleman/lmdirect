@@ -1,7 +1,19 @@
 """lmdirect connection class"""
 from .const import *
 from .aescipher import AESCipher
-from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
+from .msgs import (
+    AUTO_BITFIELD,
+    DIVIDE_KEYS,
+    DRINK_OFFSET_MAP,
+    FIRMWARE_VER,
+    GATEWAY_DRINK_MAP,
+    Msg,
+    MSGS,
+    AUTO_BITFIELD_MAP,
+    Elem,
+    SERIAL_NUMBERS,
+    UPDATE_AVAILABLE,
+)
 
 from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.httpx_client import AsyncOAuth2Client
@@ -12,10 +24,11 @@ from functools import partial
 import logging
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 class Connection:
-    def __init__(self, creds):
+    def __init__(self, machine_info):
         """Init LMDirect"""
         self._reader = None
         self._writer = None
@@ -27,32 +40,33 @@ class Connection:
         self._callback_list = []
         self._raw_callback_list = []
         self._cipher = None
-        self._creds = creds
+        self._machine_info = machine_info
         self._start_time = None
         self._connected = False
         self._lock = asyncio.Lock()
         self._first_time = True
+        self._update_available = None
 
-    async def retrieve_key(self, creds):
+    async def retrieve_machine_info(self, machine_info):
         """Machine data inialization"""
-        _LOGGER.debug("Retrieving key")
+        _LOGGER.debug(f"Retrieving machine info")
 
         client = AsyncOAuth2Client(
-            client_id=creds[CLIENT_ID],
-            client_secret=creds[CLIENT_SECRET],
+            client_id=machine_info[CLIENT_ID],
+            client_secret=machine_info[CLIENT_SECRET],
             token_endpoint=TOKEN_URL,
         )
 
         headers = {
-            "client_id": creds[CLIENT_ID],
-            "client_secret": creds[CLIENT_SECRET],
+            "client_id": machine_info[CLIENT_ID],
+            "client_secret": machine_info[CLIENT_SECRET],
         }
 
         try:
             await client.fetch_token(
                 url=TOKEN_URL,
-                username=creds[USERNAME],
-                password=creds[PASSWORD],
+                username=machine_info[USERNAME],
+                password=machine_info[PASSWORD],
                 headers=headers,
             )
         except OAuthError:
@@ -63,40 +77,63 @@ class Connection:
             await self.close()
             raise AuthFail(f"Caught: {type(err)}, {err}")
 
-        cust_info = await client.get(CUSTOMER_URL)
-        if cust_info is not None:
-            fleet = cust_info.json()["data"]["fleet"][0]
-            creds[KEY] = fleet["communicationKey"]
-            creds[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
-            creds[MACHINE_NAME] = fleet["name"]
-            creds[MODEL_NAME] = fleet["machine"]["model"]["name"]
+        """Only retrieve this the first time"""
+        if any(
+            x not in machine_info
+            for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
+        ):
+            cust_info = await client.get(CUSTOMER_URL)
+            if cust_info:
+                fleet = cust_info.json()["data"]["fleet"][0]
+                machine_info[KEY] = fleet["communicationKey"]
+                machine_info[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
+                machine_info[MACHINE_NAME] = fleet["name"]
+                machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
+
+        if any(x not in self._current_status for x in DRINK_OFFSET_MAP.values()):
+            drink_info = await client.get(
+                DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
+            )
+            if drink_info:
+                data = drink_info.json()["data"]
+                self._current_status.update(
+                    {GATEWAY_DRINK_MAP[x["coffeeType"]]: x["count"] for x in data}
+                )
+
+        if UPDATE_AVAILABLE not in self._current_status:
+            update_info = await client.get(UPDATE_URL)
+            if update_info:
+                data = update_info.json()["data"]
+                self._update_available = "Yes" if data else "No"
 
         """Done with the cloud API"""
         await client.aclose()
 
-        _LOGGER.debug(f"Finished retrieving key")
-        return creds
+        _LOGGER.debug(f"Finished machine info")
+        return machine_info
 
     async def _connect(self):
         """Conmnect to espresso machine"""
         if self._connected:
-            return self._creds
+            return self._machine_info
 
-        _LOGGER.debug("Connecting")
+        _LOGGER.debug(f"Connecting")
 
-        if not self._creds.get(KEY):
-            try:
-                self._creds.update(await self.retrieve_key(self._creds))
-            except Exception as err:
-                raise ConnectionFail(f"Exception retrieving key: {err}")
+        try:
+            self._machine_info = await self.retrieve_machine_info(self._machine_info)
+        except Exception as err:
+            raise ConnectionFail(f"Exception retrieving machine info: {err}")
 
         if not self._cipher:
-            self._cipher = AESCipher(self._creds[KEY])
+            self._cipher = AESCipher(self._machine_info[KEY])
 
         """Connect to the machine"""
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self._creds[HOST], self._creds[PORT]), timeout=3
+                asyncio.open_connection(
+                    self._machine_info[HOST], self._machine_info[PORT]
+                ),
+                timeout=3,
             )
         except asyncio.TimeoutError:
             _LOGGER.warning("Connection Timeout, skipping")
@@ -111,7 +148,7 @@ class Connection:
         self._connected = True
         _LOGGER.debug("Finished Connecting")
 
-        return self._creds
+        return self._machine_info
 
     async def start_read_task(self):
         """Start listening for responses & sending status requests"""
@@ -155,7 +192,10 @@ class Connection:
         """Call the callbacks"""
         if self._callback_list is not None:
             [
-                elem(current_status=self._current_status, **kwargs)
+                elem(
+                    current_status=self._current_status,
+                    **kwargs,
+                )
                 for elem in self._callback_list
             ]
 
@@ -178,7 +218,7 @@ class Connection:
                 if not plaintext:
                     continue
 
-                await self._process_data(plaintext)
+                await self.process_data(plaintext)
 
                 if not self._first_time:
                     if handle:
@@ -198,7 +238,7 @@ class Connection:
                     self._responses_waiting = []
                     break
 
-    async def _process_data(self, plaintext):
+    async def process_data(self, plaintext):
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
@@ -231,6 +271,9 @@ class Connection:
         else:
             cur_msg = MSGS[msg_id]
 
+        if msg_id == Msg.GET_WATER_FLOW:
+            _LOGGER.debug(plaintext)
+
         if cur_msg.map is not None:
             await self._populate_items(data, cur_msg)
 
@@ -255,6 +298,7 @@ class Connection:
             value = data[index : index + size]
 
             if elem.type == Elem.INT:
+                """Convert from ascii-encoded hex"""
                 value = int(value, 16)
 
             if "RESULT" in map[elem]:
@@ -262,22 +306,32 @@ class Connection:
                     _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
                 else:
                     _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
-            elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
+            elif any(x in map[elem] for x in DIVIDE_KEYS):
                 value = value / 10
-            elif "FIRMWARE" in map[elem]:
+            elif map[elem] == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
-            elif "SER_NUM" in map[elem]:
+            elif map[elem] in SERIAL_NUMBERS:
                 value = "".join(
                     [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
                 )
                 value = value.partition("\0")[0]
 
-            elif "AUTO_BITFIELD" in map[elem]:
+            elif map[elem] == AUTO_BITFIELD:
                 for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if value & 0x01 else DISABLED
                     self._current_status[AUTO_BITFIELD_MAP[item]] = setting
                     value = value >> 1
                 continue
+            elif map[elem] in DRINK_OFFSET_MAP:
+                offset_index = DRINK_OFFSET_MAP[map[elem]]
+                if map[elem] not in self._current_status:
+                    """If we haven't seen the value before, calculate the offset"""
+                    self._current_status.update(
+                        {offset_index: value - self._current_status[offset_index]}
+                    )
+                """Offset the value"""
+                value -= self._current_status[offset_index]
+
             self._current_status[map[elem]] = value
 
     async def _send_msg(self, msg_id, data=None, key=None):
@@ -291,7 +345,6 @@ class Connection:
         """Prevent race conditions - can be called from different tasks"""
         async with self._lock:
             msg = MSGS[msg_id]
-            _LOGGER.debug("got in here somehow")
             _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
             """Connect if we don't have an active connection"""

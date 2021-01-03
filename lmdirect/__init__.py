@@ -2,8 +2,12 @@
 from lmdirect.const import DISABLED, ENABLED, MACHINE_NAME, MODEL_NAME, SERIAL_NUMBER
 from .connection import Connection
 from .msgs import (
+    AUTO_BITFIELD,
     DOSE_TEA,
+    FIRMWARE_VER,
     GLOBAL_AUTO,
+    MON_OFF,
+    MON_ON,
     TYPE_AUTO_ON_OFF,
     TYPE_COFFEE_TEMP,
     TYPE_MAIN,
@@ -16,8 +20,8 @@ from .msgs import (
     DOSE_K1,
     TSET_COFFEE,
     TSET_STEAM,
-    TON_PREBREWING_K1,
-    TOFF_PREBREWING_K1,
+    PREBREWING_TON_K1,
+    PREBREWING_TOFF_K1,
 )
 import asyncio
 
@@ -28,8 +32,8 @@ _LOGGER.setLevel(logging.DEBUG)
 
 
 class LMDirect(Connection):
-    def __init__(self, creds):
-        super().__init__(creds)
+    def __init__(self, machine_info):
+        super().__init__(machine_info)
 
     @property
     def current_status(self):
@@ -39,17 +43,22 @@ class LMDirect(Connection):
     @property
     def machine_name(self):
         """Return the name of the machine"""
-        return self._creds[MACHINE_NAME]
+        return self._machine_info[MACHINE_NAME]
 
     @property
     def serial_number(self):
         """Return serial number"""
-        return self._creds[SERIAL_NUMBER]
+        return self._machine_info[SERIAL_NUMBER]
 
     @property
     def model_name(self):
         """Return model name"""
-        return self._creds[MODEL_NAME]
+        return self._machine_info[MODEL_NAME]
+
+    @property
+    def firmware_version(self):
+        """Return firmware version"""
+        return self._current_status.get(FIRMWARE_VER, "Unknown")
 
     def register_callback(self, callback):
         """Register callback for updates"""
@@ -73,7 +82,13 @@ class LMDirect(Connection):
 
     async def request_status(self):
         """Request all status elements"""
-        msgs = [Msg.GET_STATUS, Msg.GET_CONFIG, Msg.GET_AUTO_SCHED, Msg.GET_DATETIME]
+        msgs = [
+            Msg.GET_STATUS,
+            Msg.GET_CONFIG,
+            Msg.GET_AUTO_SCHED,
+            Msg.GET_DATETIME,
+            Msg.GET_DRINK_STATS,
+        ]
 
         _LOGGER.debug("Requesting status")
         await asyncio.gather(*[self._send_msg(msg) for msg in msgs])
@@ -129,7 +144,7 @@ class LMDirect(Connection):
 
             try:
                 """Find the bit"""
-                elem = self.findkey("AUTO_BITFIELD", AUTO_SCHED_MAP)
+                elem = self.findkey(AUTO_BITFIELD, AUTO_SCHED_MAP)
 
                 """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
                 index = elem.index * 2
@@ -179,7 +194,7 @@ class LMDirect(Connection):
 
             try:
                 """Find the "on" element"""
-                elem = self.findkey(day_of_week.replace("AUTO", "ON"), AUTO_SCHED_MAP)
+                elem = self.findkey(day_of_week + MON_ON[3:], AUTO_SCHED_MAP)
 
                 """The strings are ASCII-encoded hex, so each value takes 2 bytes and there 2 of them"""
                 index = elem.index * 2
@@ -193,8 +208,8 @@ class LMDirect(Connection):
                     + data[index + size :]
                 )
 
-                self._current_status[day_of_week.replace("AUTO", "ON")] = hour_on
-                self._current_status[day_of_week.replace("AUTO", "OFF")] = hour_off
+                self._current_status[day_of_week + MON_ON[3:]] = hour_on
+                self._current_status[day_of_week + MON_OFF[3:]] = hour_off
 
                 await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
                 await self._send_msg(Msg.GET_AUTO_SCHED)
@@ -279,8 +294,8 @@ class LMDirect(Connection):
             msg = f"Invalid values time_on:{time_on} off_time:{time_off} key:{key}"
             raise InvalidInput(msg)
 
-        self._current_status[TON_PREBREWING_K1.replace("1", str(key))] = time_on
-        self._current_status[TOFF_PREBREWING_K1.replace("1", str(key))] = time_off
+        self._current_status[PREBREWING_TON_K1.replace("1", str(key))] = time_on
+        self._current_status[PREBREWING_TOFF_K1.replace("1", str(key))] = time_off
 
         """set "on" time"""
         key_on = self.convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
