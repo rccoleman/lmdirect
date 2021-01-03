@@ -96,7 +96,7 @@ class lmtest:
                     break
 
                 if args[0] == "1":
-                    if check_args(1):
+                    if check_args(2):
                         await self.lmdirect.set_power(args[1] == "on")
                 elif args[0] == "2":
                     print(self.lmdirect.current_status)
