@@ -168,7 +168,6 @@ class LMDirect(Connection):
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
 
-        _LOGGER.error(f"Called with day_of_week:{day_of_week} enable:{enable}")
         if None in [day_of_week, enable]:
             msg = f"Some parameters invalid {day_of_week} {enable}"
             raise InvalidInput(msg)

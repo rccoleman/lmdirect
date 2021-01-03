@@ -233,7 +233,7 @@ class Connection:
 
                 """Exit if we've been reading longer than 5s"""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
-                    _LOGGER.debug("Exiting loop: {}".format(self._responses_waiting))
+                    _LOGGER.debug(f"Exiting loop: {self._responses_waiting}")
 
                     """Flush the wait list"""
                     self._responses_waiting = []
@@ -251,7 +251,7 @@ class Connection:
         data = raw_data[8:-2]
         finished = not len(self._responses_waiting)
 
-        _LOGGER.debug("Message={}, Data={}".format(msg, data))
+        _LOGGER.debug(f"Message={msg}, Data={data}")
 
         """Find the matching item or returns None"""
         msg_id = next(
@@ -267,7 +267,7 @@ class Connection:
         ]
 
         if msg_id is None:
-            _LOGGER.error("Unexpected response: {}".format(plaintext))
+            _LOGGER.error(f"Unexpected response: {plaintext}")
             return finished
         else:
             cur_msg = MSGS[msg_id]
@@ -345,7 +345,7 @@ class Connection:
         """Prevent race conditions - can be called from different tasks"""
         async with self._lock:
             msg = MSGS[msg_id]
-            _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
+            _LOGGER.debug(f"Sending {msg.msg} with {data}")
 
             """Connect if we don't have an active connection"""
             result = await self._connect()

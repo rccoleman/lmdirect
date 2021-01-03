@@ -5,7 +5,6 @@ from math import ceil
 from Crypto.Cipher import AES
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.INFO)
 
 
 class AESCipher:
