@@ -1,119 +1,156 @@
 """lmdirect connection class"""
 from .const import *
 from .aescipher import AESCipher
+from .msgs import (
+    AUTO_BITFIELD,
+    DIVIDE_KEYS,
+    DRINK_OFFSET_MAP,
+    FIRMWARE_VER,
+    GATEWAY_DRINK_MAP,
+    Msg,
+    MSGS,
+    AUTO_BITFIELD_MAP,
+    Elem,
+    SERIAL_NUMBERS,
+    UPDATE_AVAILABLE,
+)
 
 from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.httpx_client import AsyncOAuth2Client
-import asyncio, logging
+import asyncio
 from datetime import timedelta, datetime
 from functools import partial
 
-_LOGGER = logging.getLogger(__name__)
-
-from .msgs import Msg, MSGS, AUTO_BITFIELD_MAP, Elem
-from .const import *
 import logging
+
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 class Connection:
-    def __init__(self, creds):
+    def __init__(self, machine_info):
         """Init LMDirect"""
-        self._reader = self._writer = None
+        self._reader = None
+        self._writer = None
         self._read_response_task = None
         self._reaper_task = None
         self._current_status = {}
         self._responses_waiting = []
-        self._run = False
+        self._run = True
         self._callback_list = []
         self._raw_callback_list = []
         self._cipher = None
-        self._creds = creds
-        self._key = None
+        self._machine_info = machine_info
         self._start_time = None
         self._connected = False
         self._lock = asyncio.Lock()
         self._first_time = True
+        self._update_available = None
 
-    async def retrieve_key(self):
+    async def retrieve_machine_info(self, machine_info):
         """Machine data inialization"""
+        _LOGGER.debug(f"Retrieving machine info")
+
         client = AsyncOAuth2Client(
-            client_id=self._creds[CLIENT_ID],
-            client_secret=self._creds[CLIENT_SECRET],
+            client_id=machine_info[CLIENT_ID],
+            client_secret=machine_info[CLIENT_SECRET],
             token_endpoint=TOKEN_URL,
         )
 
         headers = {
-            "client_id": self._creds[CLIENT_ID],
-            "client_secret": self._creds[CLIENT_SECRET],
+            "client_id": machine_info[CLIENT_ID],
+            "client_secret": machine_info[CLIENT_SECRET],
         }
 
         try:
             await client.fetch_token(
                 url=TOKEN_URL,
-                username=self._creds[USERNAME],
-                password=self._creds[PASSWORD],
+                username=machine_info[USERNAME],
+                password=machine_info[PASSWORD],
                 headers=headers,
             )
         except OAuthError:
             await client.aclose()
-            raise AuthFail
+            raise AuthFail("Authorization failure")
 
         except Exception as err:
-            print("Caught: {}, {}".format(type(err), err))
             await self.close()
-            raise AuthFail
+            raise AuthFail(f"Caught: {type(err)}, {err}")
 
-        cust_info = await client.get(CUSTOMER_URL)
-        if cust_info is not None:
-            fleet = cust_info.json()["data"]["fleet"][0]
-            self._key = fleet["communicationKey"]
-            self._serial_number = fleet["machine"]["serialNumber"]
-            self._machine_name = fleet["name"]
-            self._model_name = fleet["machine"]["model"]["name"]
-            self._cipher = AESCipher(self._key)
+        """Only retrieve this the first time"""
+        if any(
+            x not in machine_info
+            for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
+        ):
+            cust_info = await client.get(CUSTOMER_URL)
+            if cust_info:
+                fleet = cust_info.json()["data"]["fleet"][0]
+                machine_info[KEY] = fleet["communicationKey"]
+                machine_info[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
+                machine_info[MACHINE_NAME] = fleet["name"]
+                machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
+
+        if any(x not in self._current_status for x in DRINK_OFFSET_MAP.values()):
+            drink_info = await client.get(
+                DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
+            )
+            if drink_info:
+                data = drink_info.json()["data"]
+                self._current_status.update(
+                    {GATEWAY_DRINK_MAP[x["coffeeType"]]: x["count"] for x in data}
+                )
+
+        if UPDATE_AVAILABLE not in self._current_status:
+            update_info = await client.get(UPDATE_URL)
+            if update_info:
+                data = update_info.json()["data"]
+                self._update_available = "Yes" if data else "No"
 
         """Done with the cloud API"""
         await client.aclose()
 
-    async def connect(self):
+        _LOGGER.debug(f"Finished machine info")
+        return machine_info
+
+    async def _connect(self):
         """Conmnect to espresso machine"""
         if self._connected:
-            return
+            return self._machine_info
 
-        _LOGGER.debug("Connecting")
+        _LOGGER.debug(f"Connecting")
 
-        if not self._key:
-            try:
-                await self.retrieve_key()
-            except Exception as err:
-                _LOGGER.debug("Exception retrieving key: {}".format(err))
-                raise
+        try:
+            self._machine_info = await self.retrieve_machine_info(self._machine_info)
+        except Exception as err:
+            raise ConnectionFail(f"Exception retrieving machine info: {err}")
 
-        TCP_PORT = 1774
+        if not self._cipher:
+            self._cipher = AESCipher(self._machine_info[KEY])
 
         """Connect to the machine"""
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self._creds[IP_ADDR], TCP_PORT), timeout=3
+                asyncio.open_connection(
+                    self._machine_info[HOST], self._machine_info[PORT]
+                ),
+                timeout=3,
             )
         except asyncio.TimeoutError:
             _LOGGER.warning("Connection Timeout, skipping")
-            return False
+            return None
 
         except Exception as err:
-            _LOGGER.error("Cannot connect to machine: {}".format(err))
-            return False
+            raise ConnectionFail(f"Cannot connect to machine: {err}")
 
         """Start listening for responses & sending status requests"""
         await self.start_read_task()
 
         self._connected = True
         _LOGGER.debug("Finished Connecting")
-        return True
+
+        return self._machine_info
 
     async def start_read_task(self):
-        self._run = True
-
         """Start listening for responses & sending status requests"""
         loop = asyncio.get_event_loop()
         self._read_response_task = loop.create_task(
@@ -130,6 +167,10 @@ class Connection:
 
         if self._writer is not None:
             self._writer.close()
+
+        if self._read_response_task:
+            self._read_response_task.cancel()
+
         self._reader = self._writer = None
         self._connected = False
         _LOGGER.debug("Finished closing")
@@ -137,7 +178,7 @@ class Connection:
     async def reaper(self):
         _LOGGER.debug("Starting reaper")
         try:
-            await asyncio.gather(*[self._read_response_task])
+            await asyncio.gather(self._read_response_task)
         except Exception as err:
             _LOGGER.error(f"Exception in read_response_task: {err}")
 
@@ -151,7 +192,10 @@ class Connection:
         """Call the callbacks"""
         if self._callback_list is not None:
             [
-                elem(current_status=self._current_status, **kwargs)
+                elem(
+                    current_status=self._current_status,
+                    **kwargs,
+                )
                 for elem in self._callback_list
             ]
 
@@ -174,7 +218,7 @@ class Connection:
                 if not plaintext:
                     continue
 
-                await self._process_data(plaintext)
+                await self.process_data(plaintext)
 
                 if not self._first_time:
                     if handle:
@@ -194,7 +238,7 @@ class Connection:
                     self._responses_waiting = []
                     break
 
-    async def _process_data(self, plaintext):
+    async def process_data(self, plaintext):
         """Process incoming packet"""
 
         """Separate the mesg from the data"""
@@ -227,16 +271,18 @@ class Connection:
         else:
             cur_msg = MSGS[msg_id]
 
+        if msg_id == Msg.GET_WATER_FLOW:
+            _LOGGER.debug(plaintext)
+
         if cur_msg.map is not None:
             await self._populate_items(data, cur_msg)
 
         if cur_msg.msg in self._responses_waiting:
             self._responses_waiting.remove(cur_msg.msg)
             finished = not len(self._responses_waiting)
-            if finished:
-                _LOGGER.debug("Received all responses")
-            else:
-                _LOGGER.debug("Waiting for {}".format(self._responses_waiting))
+            _LOGGER.debug("Received all responses") if finished else _LOGGER.debug(
+                "Waiting for {}".format(self._responses_waiting)
+            )
 
         return finished
 
@@ -252,6 +298,7 @@ class Connection:
             value = data[index : index + size]
 
             if elem.type == Elem.INT:
+                """Convert from ascii-encoded hex"""
                 value = int(value, 16)
 
             if "RESULT" in map[elem]:
@@ -259,22 +306,32 @@ class Connection:
                     _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
                 else:
                     _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
-            elif any(x in map[elem] for x in ["TSET", "TEMP", "PREBREWING_K"]):
+            elif any(x in map[elem] for x in DIVIDE_KEYS):
                 value = value / 10
-            elif "FIRMWARE" in map[elem]:
+            elif map[elem] == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
-            elif "SER_NUM" in map[elem]:
+            elif map[elem] in SERIAL_NUMBERS:
                 value = "".join(
                     [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
                 )
                 value = value.partition("\0")[0]
 
-            elif "AUTO_BITFIELD" in map[elem]:
+            elif map[elem] == AUTO_BITFIELD:
                 for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if value & 0x01 else DISABLED
                     self._current_status[AUTO_BITFIELD_MAP[item]] = setting
                     value = value >> 1
                 continue
+            elif map[elem] in DRINK_OFFSET_MAP:
+                offset_index = DRINK_OFFSET_MAP[map[elem]]
+                if map[elem] not in self._current_status:
+                    """If we haven't seen the value before, calculate the offset"""
+                    self._current_status.update(
+                        {offset_index: value - self._current_status[offset_index]}
+                    )
+                """Offset the value"""
+                value -= self._current_status[offset_index]
+
             self._current_status[map[elem]] = value
 
     async def _send_msg(self, msg_id, data=None, key=None):
@@ -288,11 +345,16 @@ class Connection:
         """Prevent race conditions - can be called from different tasks"""
         async with self._lock:
             msg = MSGS[msg_id]
-
             _LOGGER.debug("Sending {} with {}".format(msg.msg, data))
 
             """Connect if we don't have an active connection"""
-            await self.connect()
+            result = await self._connect()
+
+            if not result:
+                raise ConnectionFail("Connection failed")
+
+            if not self._writer:
+                raise ConnectionFail(f"self._writer={self._writer}")
 
             """Add read/write and check bytes"""
             plaintext = msg.msg_type + msg.msg
@@ -327,4 +389,14 @@ class Connection:
 
 
 class AuthFail(BaseException):
-    """Error to indicate there is invalid auth."""
+    """Error to indicate there is invalid auth"""
+
+    def __init__(msg):
+        _LOGGER.error(msg)
+
+
+class ConnectionFail(BaseException):
+    """Error to indicate there is no Connection"""
+
+    def __init__(msg):
+        _LOGGER.error(msg)
