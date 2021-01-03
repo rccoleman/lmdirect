@@ -11,11 +11,13 @@ This is a prototype library for interacting with the local network API of a La M
 Using this library is an advanced exercise.  You'll need to do the following:
 * Find the `client_id` and `client_secret` for your machine by following [these instructions](https://github.com/rccoleman/lmdirect/blob/master/Credentials.md).  You'll need the username & password that you used to register with La Marzocco when you set up remote access, and the username is most likely the email address that you used for registration.
 
-Once you have the client ID, client secret, username, and passowrd, construct a file called `config.json` with these contents and put it in the directory along with `test.py`:
+Once you have the client ID, client secret, username, and passowrd, construct a file called `config.json` with these contents and put it in the directory along with `test.py`. `filename` and `key` are only required if you run `parse.py`.
 
 ```
 {
-    "host": "host",
+    "filename": "dose_tea.json",
+    "key": "long-key-string",
+    "ip_addr": "ip_address",
     "client_id": "a_long_string",
     "client_secret": "another_long_string",
     "username": "email@address.com",
