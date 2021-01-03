@@ -76,7 +76,7 @@ class lmtest:
         while True:
             try:
                 print(
-                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <sec>, 8=Tea Dose <sec>, 8=PB times <on off>: "
+                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <key> <sec>, 8=Tea Dose <sec>, 8=PB times <key> <on off>: "
                 )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
@@ -101,13 +101,13 @@ class lmtest:
                 elif args[0] == "2":
                     print(self.lmdirect.current_status)
                 elif args[0] == "3":
-                    if check_args(1):
+                    if check_args(2):
                         await self.lmdirect.set_coffee_temp(args[1])
                 elif args[0] == "4":
-                    if check_args(1):
+                    if check_args(2):
                         await self.lmdirect.set_steam_temp(args[1])
                 elif args[0] == "5":
-                    if check_args(1):
+                    if check_args(2):
                         await self.lmdirect.set_prebrewing_enable(args[1] == "on")
                 elif args[0] == "6":
                     if check_args(2):
