@@ -97,7 +97,7 @@ TYPE_COFFEE_TEMP = 4
 TYPE_STEAM_TEMP = 5
 TYPE_DRINK_STATS = 6
 
-DIVIDE_KEYS = ["tset", "temp", "prebrewing_k"]
+DIVIDE_KEYS = ["temp", "prebrewing_to"]
 SERIAL_NUMBERS = [MACHINE_SER_NUM, MODULE_SER_NUM]
 
 # Response Maps

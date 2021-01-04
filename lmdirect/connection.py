@@ -306,7 +306,7 @@ class Connection:
                     _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
                 else:
                     _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
-            elif any(x in map[elem] for x in DIVIDE_KEYS):
+            elif any(x in map[elem] for x in DIVIDE_KEYS if x in map[elem]):
                 value = value / 10
             elif map[elem] == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
