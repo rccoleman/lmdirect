@@ -1,4 +1,9 @@
-"""Local API commands for La Marzocco espresso machines"""
+"""Local API commands for La Marzocco espresso machines."""
+
+"""All models currently Wifi-enabled."""
+MODEL_GS3_AV = "GS3 AV"
+MODEL_GS3_MP = "GS3 MP"
+MODEL_LM = "Linea Mini"
 
 # Tags
 
@@ -97,7 +102,7 @@ TYPE_COFFEE_TEMP = 4
 TYPE_STEAM_TEMP = 5
 TYPE_DRINK_STATS = 6
 
-DIVIDE_KEYS = ["tset", "temp", "prebrewing_k"]
+DIVIDE_KEYS = ["temp", "prebrewing_to"]
 SERIAL_NUMBERS = [MACHINE_SER_NUM, MODULE_SER_NUM]
 
 # Response Maps
@@ -252,9 +257,9 @@ AUTO_BITFIELD_MAP = {
 # OK: Result
 # 72: Check byte
 
-WRITE_RESULT_MAP = {
-    Elem(0, 1, type=Elem.STRING): WRITE_RESULT,
-}
+# WRITE_RESULT_MAP = {
+#     Elem(0, 1, type=Elem.STRING): WRITE_RESULT,
+# }
 
 # App: R 01 00 00 11 D5
 # Machine:
@@ -422,13 +427,13 @@ MSGS = {
     Msg.GET_DRINK_STATS: Msg(Msg.READ, "0020002C", DRINK_STATS_MAP),
     Msg.GET_WATER_FLOW: Msg(Msg.STREAM, "60000016", WATER_FLOW_MAP),
     # Writes
-    Msg.SET_POWER: Msg(Msg.WRITE, "00000001", WRITE_RESULT_MAP),
-    Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", WRITE_RESULT_MAP),
-    Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", WRITE_RESULT_MAP),
-    Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", WRITE_RESULT_MAP),
-    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", WRITE_RESULT_MAP),
+    Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
+    Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
+    Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", None),
+    Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", None),
+    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", None),
     # Write config for keys (second byte is base + the key number and will be replaced)
-    Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", WRITE_RESULT_MAP),
-    Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", WRITE_RESULT_MAP),
-    Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", WRITE_RESULT_MAP),
+    Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
+    Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", None),
+    Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", None),
 }

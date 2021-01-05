@@ -1,31 +1,34 @@
 """lmdierct"""
+import asyncio
+import logging
+
 from lmdirect.const import DISABLED, ENABLED, MACHINE_NAME, MODEL_NAME, SERIAL_NUMBER
+
 from .connection import Connection
 from .msgs import (
     AUTO_BITFIELD,
+    AUTO_BITFIELD_MAP,
+    AUTO_SCHED_MAP,
+    DOSE_K1,
     DOSE_TEA,
     FIRMWARE_VER,
     GLOBAL_AUTO,
+    MODEL_GS3_AV,
+    MODEL_LM,
     MON_OFF,
     MON_ON,
+    MSGS,
+    PREBREWING_TOFF_K1,
+    PREBREWING_TON_K1,
+    TSET_COFFEE,
+    TSET_STEAM,
     TYPE_AUTO_ON_OFF,
     TYPE_COFFEE_TEMP,
     TYPE_MAIN,
     TYPE_PREBREW,
     TYPE_STEAM_TEMP,
     Msg,
-    MSGS,
-    AUTO_SCHED_MAP,
-    AUTO_BITFIELD_MAP,
-    DOSE_K1,
-    TSET_COFFEE,
-    TSET_STEAM,
-    PREBREWING_TON_K1,
-    PREBREWING_TOFF_K1,
 )
-import asyncio
-
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,7 +170,6 @@ class LMDirect(Connection):
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
 
-        _LOGGER.error(f"Called with day_of_week:{day_of_week} enable:{enable}")
         if None in [day_of_week, enable]:
             msg = f"Some parameters invalid {day_of_week} {enable}"
             raise InvalidInput(msg)
@@ -290,7 +292,14 @@ class LMDirect(Connection):
 
         """Validate input"""
         if not (0 <= time_on <= 5.9 and 0 <= time_off <= 5.9 and 1 <= key <= 4):
-            msg = f"Invalid values time_on:{time_on} off_time:{time_off} key:{key}"
+            msg = f"Invalid values time_on:{time_on} off_time:{time_off}"
+            raise InvalidInput(msg)
+
+        if not (
+            (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
+            or (self.model_name == MODEL_LM and key == 1)
+        ):
+            msg = f"Invalid values key:{key}"
             raise InvalidInput(msg)
 
         self._current_status[PREBREWING_TON_K1.replace("1", str(key))] = time_on
@@ -355,5 +364,5 @@ class LMDirect(Connection):
 class InvalidInput(BaseException):
     """Error to indicate there is no Connection"""
 
-    def __init__(msg):
+    def __init__(self, msg):
         _LOGGER.error(msg)
