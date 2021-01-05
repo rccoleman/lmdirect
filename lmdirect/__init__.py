@@ -13,6 +13,8 @@ from .msgs import (
     DOSE_TEA,
     FIRMWARE_VER,
     GLOBAL_AUTO,
+    MODEL_GS3_AV,
+    MODEL_LM,
     MON_OFF,
     MON_ON,
     MSGS,
@@ -290,7 +292,14 @@ class LMDirect(Connection):
 
         """Validate input"""
         if not (0 <= time_on <= 5.9 and 0 <= time_off <= 5.9 and 1 <= key <= 4):
-            msg = f"Invalid values time_on:{time_on} off_time:{time_off} key:{key}"
+            msg = f"Invalid values time_on:{time_on} off_time:{time_off}"
+            raise InvalidInput(msg)
+
+        if not (
+            (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
+            or (self.model_name == MODEL_LM and key == 1)
+        ):
+            msg = f"Invalid values key:{key}"
             raise InvalidInput(msg)
 
         self._current_status[PREBREWING_TON_K1.replace("1", str(key))] = time_on
@@ -355,5 +364,5 @@ class LMDirect(Connection):
 class InvalidInput(BaseException):
     """Error to indicate there is no Connection"""
 
-    def __init__(msg):
+    def __init__(self, msg):
         _LOGGER.error(msg)

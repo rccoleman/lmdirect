@@ -253,38 +253,45 @@ class Connection:
 
         _LOGGER.debug(f"Message={msg}, Data={data}")
 
-        """Find the matching item or returns None"""
-        msg_id = next(
-            (x for x in MSGS if MSGS[x].msg == msg and MSGS[x].msg_type == msg_type),
-            None,
-        )
-
-        """notify any listeners for this message"""
-        [
-            await x[1]((msg_id, x[1]), data)
-            for x in self._raw_callback_list
-            if MSGS[x[0]].msg == msg
-        ]
-
-        if msg_id is None:
-            _LOGGER.error(f"Unexpected response: {plaintext}")
-            return finished
+        if msg_type == Msg.WRITE:
+            if Msg.RESPONSE_GOOD not in data:
+                _LOGGER.error(f"Command Failed: {msg}: {data}")
+            else:
+                _LOGGER.debug(f"Command Succeeded: {msg}: {data}")
         else:
-            cur_msg = MSGS[msg_id]
+            """Find the matching item or returns None"""
+            msg_id = next(
+                (
+                    x
+                    for x in MSGS
+                    if MSGS[x].msg == msg and MSGS[x].msg_type == msg_type
+                ),
+                None,
+            )
 
-        if msg_id == Msg.GET_WATER_FLOW:
-            _LOGGER.debug(plaintext)
+            if msg_id is None:
+                _LOGGER.error(f"Unexpected response: {plaintext}")
+                return False
+            else:
+                cur_msg = MSGS[msg_id]
 
-        if cur_msg.map is not None:
-            await self._populate_items(data, cur_msg)
+            """notify any listeners for this message"""
+            [
+                await x[1]((msg_id, x[1]), data)
+                for x in self._raw_callback_list
+                if MSGS[x[0]].msg == msg
+            ]
 
-        if cur_msg.msg in self._responses_waiting:
-            self._responses_waiting.remove(cur_msg.msg)
+            if cur_msg.map is not None:
+                await self._populate_items(data, cur_msg)
+
+        if msg in self._responses_waiting:
+            self._responses_waiting.remove(msg)
             finished = not len(self._responses_waiting)
             if finished:
                 _LOGGER.debug("Received all responses")
 
-        return finished
+        return True
 
     async def _populate_items(self, data, cur_msg):
         """process all the fields"""
@@ -301,12 +308,7 @@ class Connection:
                 """Convert from ascii-encoded hex"""
                 value = int(value, 16)
 
-            if "RESULT" in map[elem]:
-                if Msg.RESPONSE_GOOD not in value:
-                    _LOGGER.error(f"Command Failed: {map[elem]}: {data}")
-                else:
-                    _LOGGER.debug(f"Command Succeeded: {map[elem]}: {data}")
-            elif any(x in map[elem] for x in DIVIDE_KEYS if x in map[elem]):
+            if any(x in map[elem] for x in DIVIDE_KEYS):
                 value = value / 10
             elif map[elem] == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
@@ -356,12 +358,13 @@ class Connection:
             if not self._writer:
                 raise ConnectionFail(f"self._writer={self._writer}")
 
-            """Add read/write and check bytes"""
-            plaintext = msg.msg_type + msg.msg
-
             """If a key was provided, replace the second byte of the message"""
+            msg_to_send = msg.msg if not key else msg.msg[:2] + key + msg.msg[4:]
+
             if key:
-                plaintext = plaintext[:3] + key + plaintext[5:]
+                msg_to_send = msg_to_send[:2] + key + msg_to_send[4:]
+
+            plaintext = msg.msg_type + msg_to_send
 
             if data is not None:
                 plaintext += data
@@ -379,7 +382,7 @@ class Connection:
             await self._writer.drain()
 
             """Remember that we're waiting for a response"""
-            self._responses_waiting.append(msg.msg)
+            self._responses_waiting.append(msg_to_send)
 
             """Note when the command was sent"""
             self._start_time = datetime.now()
@@ -390,12 +393,12 @@ class Connection:
 class AuthFail(BaseException):
     """Error to indicate there is invalid auth"""
 
-    def __init__(msg):
+    def __init__(self, msg):
         _LOGGER.error(msg)
 
 
 class ConnectionFail(BaseException):
     """Error to indicate there is no Connection"""
 
-    def __init__(msg):
+    def __init__(self, msg):
         _LOGGER.error(msg)
