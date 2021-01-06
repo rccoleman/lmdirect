@@ -49,6 +49,13 @@ TOTAL_DRINKS = "total_drinks"
 HOT_WATER_2 = "hot_water_2"
 DRINKS_TEA = "drinks_tea"
 
+COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
+STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
+SECONDS_RUNNING = "seconds_running"
+DAYS_SINCE_BUILT = "days_since_built"
+SECONDS_PUMP_ON = "seconds_pump_on"
+SECONDS_WATER_ON = "seconds_water_on"
+
 FIRMWARE_VER = "firmware_ver"
 MODULE_SER_NUM = "module_ser_num"
 
@@ -358,6 +365,24 @@ WATER_FLOW_MAP = {
     # Elem(20, 2): TEMP_STEAM,
 }
 
+# R
+# 00500018 - Message
+# 000001FE - Coffee heating element minutes on
+# 00000189 - Steam heating element minutes on
+# 00009772 - Number of seconds that the machine has been running, either coffee or hot water
+# 00001CA9 - Total hours of on-time
+# 00009500 - Number of seconds that the pump has been running
+# 00000075 - Number of seconds that hot water has been dispensed
+
+USAGE_MAP = {
+    Elem(0, 4): COFFEE_HEATING_ELEMENT_HOURS,
+    Elem(4, 4): STEAM_HEATING_ELEMENT_HOURS,
+    Elem(8, 4): SECONDS_RUNNING,
+    Elem(12, 4): DAYS_SINCE_BUILT,
+    Elem(16, 4): SECONDS_PUMP_ON,
+    Elem(20, 4): SECONDS_WATER_ON,
+}
+
 
 class Msg:
     GET_STATUS = 0
@@ -378,6 +403,7 @@ class Msg:
     SET_PREBREW_TIMES = 14
     GET_DRINK_STATS = 15
     GET_WATER_FLOW = 16
+    GET_USAGE_STATS = 17
 
     """Dose command starts at 0x14 for the first key and increments by 2 thereafter"""
     DOSE_KEY_BASE = 0x14
@@ -426,6 +452,7 @@ MSGS = {
     Msg.GET_DATETIME: Msg(Msg.READ, "03000007", DATETIME_MAP),
     Msg.GET_DRINK_STATS: Msg(Msg.READ, "0020002C", DRINK_STATS_MAP),
     Msg.GET_WATER_FLOW: Msg(Msg.STREAM, "60000016", WATER_FLOW_MAP),
+    Msg.GET_USAGE_STATS: Msg(Msg.READ, "00500018", USAGE_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),

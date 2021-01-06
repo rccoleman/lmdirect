@@ -1,4 +1,4 @@
-"""lmdirect connection class"""
+"""lmdirect connection class."""
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ from .const import *
 from .msgs import (
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
+    DAYS_SINCE_BUILT,
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
     FIRMWARE_VER,
@@ -28,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Connection:
     def __init__(self, machine_info):
-        """Init LMDirect"""
+        """Init LMDirect."""
         self._reader = None
         self._writer = None
         self._read_response_task = None
@@ -45,9 +46,10 @@ class Connection:
         self._lock = asyncio.Lock()
         self._first_time = True
         self._update_available = None
+        self._initialized_machine_info = False
 
     async def retrieve_machine_info(self, machine_info):
-        """Machine data inialization"""
+        """Retrieve the machine info from the cloud APIs."""
         _LOGGER.debug(f"Retrieving machine info")
 
         client = AsyncOAuth2Client(
@@ -76,7 +78,7 @@ class Connection:
             await self.close()
             raise AuthFail(f"Caught: {type(err)}, {err}")
 
-        """Only retrieve this the first time"""
+        """Only retrieve info if we're missing something."""
         if any(
             x not in machine_info
             for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
@@ -105,28 +107,33 @@ class Connection:
                 data = update_info.json()["data"]
                 self._update_available = "Yes" if data else "No"
 
-        """Done with the cloud API"""
+        """Done with the cloud API, close."""
         await client.aclose()
+
+        self._initialized_machine_info = True
 
         _LOGGER.debug(f"Finished machine info")
         return machine_info
 
     async def _connect(self):
-        """Conmnect to espresso machine"""
+        """Conmnect to espresso machine."""
         if self._connected:
             return self._machine_info
 
         _LOGGER.debug(f"Connecting")
 
-        try:
-            self._machine_info = await self.retrieve_machine_info(self._machine_info)
-        except Exception as err:
-            raise ConnectionFail(f"Exception retrieving machine info: {err}")
+        if not self._initialized_machine_info:
+            try:
+                self._machine_info = await self.retrieve_machine_info(
+                    self._machine_info
+                )
+            except Exception as err:
+                raise ConnectionFail(f"Exception retrieving machine info: {err}")
 
         if not self._cipher:
             self._cipher = AESCipher(self._machine_info[KEY])
 
-        """Connect to the machine"""
+        """Connect to the machine."""
         try:
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(
@@ -141,7 +148,7 @@ class Connection:
         except Exception as err:
             raise ConnectionFail(f"Cannot connect to machine: {err}")
 
-        """Start listening for responses & sending status requests"""
+        """Start listening for responses."""
         await self.start_read_task()
 
         self._connected = True
@@ -150,7 +157,7 @@ class Connection:
         return self._machine_info
 
     async def start_read_task(self):
-        """Start listening for responses & sending status requests"""
+        """Start listening for responses."""
         loop = asyncio.get_event_loop()
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
@@ -162,7 +169,7 @@ class Connection:
         )
 
     async def _close(self):
-        """Close the connection"""
+        """Close the connection to the machine."""
         if not self._connected:
             return
 
@@ -190,7 +197,7 @@ class Connection:
         _LOGGER.debug("Finished reaping read task")
 
     def _call_callbacks(self, **kwargs):
-        """Call the callbacks"""
+        """Call the callbacks."""
         if self._callback_list is not None:
             [
                 elem(
@@ -201,7 +208,7 @@ class Connection:
             ]
 
     async def read_response_task(self):
-        """Start thread to receive responses"""
+        """Start thread to receive responses."""
         BUFFER_SIZE = 1000
         handle = None
 
@@ -226,28 +233,28 @@ class Connection:
                         handle.cancel()
                         handle = None
 
-                    """Throttle callbacks"""
+                    """Coalesce callbacks within a 5s window."""
                     handle = loop.call_later(5, self._call_callbacks)
                 else:
                     self._call_callbacks()
 
-                """Exit if we've been reading longer than 5s"""
+                """Exit if we've been reading longer than 5s since the last command."""
                 if datetime.now() > self._start_time + timedelta(seconds=5):
                     _LOGGER.debug(f"Exiting loop: {self._responses_waiting}")
 
-                    """Flush the wait list"""
+                    """Flush the wait list."""
                     self._responses_waiting = []
                     break
 
     async def process_data(self, plaintext):
-        """Process incoming packet"""
+        """Process incoming packet."""
 
-        """Separate the mesg from the data"""
+        """Separate the mesg from the data."""
         msg_type = plaintext[0]
         raw_data = plaintext[1:]
         msg = raw_data[:8]
 
-        """chop off the message and check byte"""
+        """Chop off the message and check byte."""
         data = raw_data[8:-2]
         finished = not len(self._responses_waiting)
 
@@ -259,7 +266,7 @@ class Connection:
             else:
                 _LOGGER.debug(f"Command Succeeded: {msg}: {data}")
         else:
-            """Find the matching item or returns None"""
+            """Find the matching item or returns None."""
             msg_id = next(
                 (
                     x
@@ -275,7 +282,7 @@ class Connection:
             else:
                 cur_msg = MSGS[msg_id]
 
-            """notify any listeners for this message"""
+            """Notify any listeners for this message."""
             [
                 await x[1]((msg_id, x[1]), data)
                 for x in self._raw_callback_list
@@ -294,18 +301,18 @@ class Connection:
         return True
 
     async def _populate_items(self, data, cur_msg):
-        """process all the fields"""
+        """Process all the fields and populate shared dict."""
         map = cur_msg.map
         for elem in map:
-            """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
+            """The strings are ASCII-encoded hex, so each value takes 2 bytes."""
             index = elem.index * 2
             size = elem.size * 2
 
-            """Extract value for this field"""
+            """Extract value for this field."""
             value = data[index : index + size]
 
             if elem.type == Elem.INT:
-                """Convert from ascii-encoded hex"""
+                """Convert from ascii-encoded hex."""
                 value = int(value, 16)
 
             if any(x in map[elem] for x in DIVIDE_KEYS):
@@ -316,6 +323,7 @@ class Connection:
                 value = "".join(
                     [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
                 )
+                """Chop off any trailing nulls."""
                 value = value.partition("\0")[0]
 
             elif map[elem] == AUTO_BITFIELD:
@@ -327,38 +335,41 @@ class Connection:
             elif map[elem] in DRINK_OFFSET_MAP:
                 offset_index = DRINK_OFFSET_MAP[map[elem]]
                 if map[elem] not in self._current_status:
-                    """If we haven't seen the value before, calculate the offset"""
+                    """If we haven't seen the value before, calculate the offset."""
                     self._current_status.update(
                         {offset_index: value - self._current_status[offset_index]}
                     )
-                """Offset the value"""
+                """Apply the offset to the value."""
                 value -= self._current_status[offset_index]
+            elif map[elem] == DAYS_SINCE_BUILT:
+                """Convert hours to days."""
+                value = round(value / 24)
 
             self._current_status[map[elem]] = value
 
     async def _send_msg(self, msg_id, data=None, key=None):
-        """Send command to espresso machine"""
+        """Send command to the espresso machine."""
 
         def checksum(buffer):
-            """Compute check byte"""
+            """Compute check byte."""
             buffer = bytes(buffer, "utf-8")
             return "%0.2X" % (sum(buffer) % 256)
 
-        """Prevent race conditions - can be called from different tasks"""
+        """Prevent race conditions - can be called from different tasks."""
         async with self._lock:
             msg = MSGS[msg_id]
             _LOGGER.debug(f"Sending {msg.msg} with {data}")
 
-            """Connect if we don't have an active connection"""
+            """Connect if we don't have an active connection."""
             result = await self._connect()
 
             if not result:
-                raise ConnectionFail("Connection failed")
+                raise ConnectionFail("Connection failed.")
 
             if not self._writer:
                 raise ConnectionFail(f"self._writer={self._writer}")
 
-            """If a key was provided, replace the second byte of the message"""
+            """If a key was provided, replace the second byte of the message."""
             msg_to_send = msg.msg if not key else msg.msg[:2] + key + msg.msg[4:]
 
             if key:
@@ -369,7 +380,7 @@ class Connection:
             if data is not None:
                 plaintext += data
 
-            """Add the check byte"""
+            """Add the check byte."""
             plaintext += checksum(plaintext)
 
             loop = asyncio.get_event_loop()
@@ -381,24 +392,24 @@ class Connection:
             self._writer.write(bytes(ciphertext, "utf-8"))
             await self._writer.drain()
 
-            """Remember that we're waiting for a response"""
+            """Remember that we're waiting for a response."""
             self._responses_waiting.append(msg_to_send)
 
-            """Note when the command was sent"""
+            """Note when the command was sent."""
             self._start_time = datetime.now()
 
-            _LOGGER.debug("Finished sending")
+            # _LOGGER.debug("Finished sending")
 
 
 class AuthFail(BaseException):
-    """Error to indicate there is invalid auth"""
+    """Error to indicate there is invalid auth info."""
 
     def __init__(self, msg):
         _LOGGER.error(msg)
 
 
 class ConnectionFail(BaseException):
-    """Error to indicate there is no Connection"""
+    """Error to indicate there is no connection."""
 
     def __init__(self, msg):
         _LOGGER.error(msg)
