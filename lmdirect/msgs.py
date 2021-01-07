@@ -51,10 +51,10 @@ DRINKS_TEA = "drinks_tea"
 
 COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
 STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
-SECONDS_RUNNING = "seconds_running"
+MACHINE_RUNNING_SECONDS = "machine_running_seconds"
 DAYS_SINCE_BUILT = "days_since_built"
-SECONDS_PUMP_ON = "seconds_pump_on"
-SECONDS_WATER_ON = "seconds_water_on"
+PUMP_ON_SECONDS = "pump_on_seconds"
+WATER_ON_SECONDS = "water_on_seconds"
 
 FIRMWARE_VER = "firmware_ver"
 MODULE_SER_NUM = "module_ser_num"
@@ -377,10 +377,10 @@ WATER_FLOW_MAP = {
 USAGE_MAP = {
     Elem(0, 4): COFFEE_HEATING_ELEMENT_HOURS,
     Elem(4, 4): STEAM_HEATING_ELEMENT_HOURS,
-    Elem(8, 4): SECONDS_RUNNING,
+    Elem(8, 4): MACHINE_RUNNING_SECONDS,
     Elem(12, 4): DAYS_SINCE_BUILT,
-    Elem(16, 4): SECONDS_PUMP_ON,
-    Elem(20, 4): SECONDS_WATER_ON,
+    Elem(16, 4): PUMP_ON_SECONDS,
+    Elem(20, 4): WATER_ON_SECONDS,
 }
 
 
