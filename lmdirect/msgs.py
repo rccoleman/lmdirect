@@ -18,6 +18,7 @@ from lmdirect.const import (
 
 DATE_RECEIVED = "date_received"
 POWER = "power"
+POWER_MYSTERY = "power_mystery"
 TEMP_COFFEE = "coffee_temp"
 TEMP_STEAM = "steam_temp"
 TSET_STEAM = "steam_set_temp"
@@ -27,7 +28,7 @@ DOSE_K2 = "dose_k2"
 DOSE_K3 = "dose_k3"
 DOSE_K4 = "dose_k4"
 DOSE_K5 = "dose_k5"
-DOSE_TEA = "dose_tea"
+DOSE_HOT_WATER = "dose_hot_water"
 ENABLE_PREBREWING = "enable_prebrewing"
 PREBREWING_TON_K1 = "prebrewing_ton_k1"
 PREBREWING_TON_K2 = "prebrewing_ton_k2"
@@ -47,7 +48,18 @@ HOT_WATER = "hot_water"
 DRINK_MYSTERY = "drink_mystery"
 TOTAL_DRINKS = "total_drinks"
 HOT_WATER_2 = "hot_water_2"
-DRINKS_TEA = "drinks_tea"
+DRINKS_HOT_WATER = "drinks_hot_water"
+
+HEATING_STATE = "heating_state"
+STEAM_HEATER_ON = "steam_heater_on"
+COFFEE_HEATER_ON = "coffee_heater_on"
+HEATING_ON = "heating_on"
+
+HEATING_VALUES = {
+    STEAM_HEATER_ON: 0x40,
+    COFFEE_HEATER_ON: 0x20,
+    HEATING_ON: 0x10,
+}
 
 COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
 STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
@@ -94,7 +106,8 @@ DAY = "day"
 MONTH = "month"
 YEAR = "month"
 
-FLOW_MYSTERY = "flow_mystery"
+FLOW_KEY = "flow_key"
+FLOW_RATE = "flow_rate"
 FLOW_PULSES = "flow_pulses"
 FLOW_SECONDS = "flow_seconds"
 
@@ -159,11 +172,13 @@ TEMP_REPORT_MAP = {Elem(0, 2): TEMP_COFFEE, Elem(2, 2): TEMP_STEAM}
 # 70: Check byte
 
 STATUS_MAP = {
-    Elem(1, 1): FIRMWARE_VER,
+    Elem(1): FIRMWARE_VER,
     Elem(3, 12, type=Elem.STRING): MODULE_SER_NUM,
-    Elem(23, 1): POWER,
-    # Elem(32, 2): TEMP_COFFEE,
-    # Elem(34, 2): TEMP_STEAM,
+    Elem(15): POWER_MYSTERY,
+    Elem(23): POWER,
+    Elem(27): HEATING_STATE,
+    # Elem(28, 2): TEMP_COFFEE,
+    # Elem(30, 2): TEMP_STEAM,
 }
 
 # R
@@ -185,7 +200,7 @@ STATUS_MAP = {
 # 28: 0078: Dose B3
 # 30: 0085: Dose B4
 # 32: 03E8: Dose B5
-# 34: 08: Seconds hot water for Tea
+# 34: 08: Seconds hot water
 # 35: Check byte
 
 CONFIG_MAP = {
@@ -205,7 +220,7 @@ CONFIG_MAP = {
     Elem(24, 2): DOSE_K3,
     Elem(26, 2): DOSE_K4,
     Elem(28, 2): DOSE_K5,
-    Elem(30): DOSE_TEA,
+    Elem(30): DOSE_HOT_WATER,
 }
 
 # Response to R 03 10 00 1D EB
@@ -292,13 +307,13 @@ SER_NUM_MAP = {
 # B3: Check byte
 
 DATETIME_MAP = {
-    Elem(0, 1): SECOND,
-    Elem(1, 1): MINUTE,
-    Elem(2, 1): HOUR,
-    Elem(3, 1): DAYOFWEEK,
-    Elem(4, 1): DAY,
-    Elem(5, 1): MONTH,
-    Elem(6, 1): YEAR,
+    Elem(0): SECOND,
+    Elem(1): MINUTE,
+    Elem(2): HOUR,
+    Elem(3): DAYOFWEEK,
+    Elem(4): DAY,
+    Elem(5): MONTH,
+    Elem(6): YEAR,
 }
 
 # R
@@ -307,13 +322,13 @@ DATETIME_MAP = {
 # 00000096: Key 2 (2 espressos) * 2 = 0x12C
 # 000001B0: Key 3 (1 coffee)
 # 00000021: Key 4 (2 coffees) * 2 = 0x42
-# 00000563: Flushing
+# 00000563: Continuous
 # 00000914: From Coffee boiler (total of above)
-# 00000010: Tea
+# 00000010: Hot water
 # 0000000A: ?? Doesn't seem to change
 # 00000ADE: ?? Increments every button press
-# 00000010: Also Tea?
-# 00000032: # Tea, if you let it finish
+# 00000010: Also hot water?
+# 00000032: # Hot water if you let it finish
 
 DRINK_STATS_MAP = {
     Elem(0, 4): DRINKS_K1,
@@ -326,7 +341,7 @@ DRINK_STATS_MAP = {
     Elem(28, 4): DRINK_MYSTERY,
     Elem(32, 4): TOTAL_DRINKS,
     Elem(36, 4): HOT_WATER_2,
-    Elem(40, 4): DRINKS_TEA,
+    Elem(40, 4): DRINKS_HOT_WATER,
 }
 
 GATEWAY_DRINK_MAP = {
@@ -350,17 +365,19 @@ DRINK_OFFSET_MAP = {
 # Z
 # 60000016
 # Snxxxxxxxxxx
-# 0401: Mystery
-# 0009: Pulses
-# 000C: Seconds (upper 12 bits are whole seconds, lower 4 bits are fractional)
+# 04: Key
+# 01: Rate (1 = high flow rate, 0 = low flow rate) - flips from 1 to 0 as flow slows
+# 0009: Seconds (upper 12 bits are whole seconds, lower 4 bits are fractional)
+# 000C: Pulses
 # 03B6: Coffee boiler temp
 # 04D4: Steam boiler temp
 # DC: Check byte
 
 WATER_FLOW_MAP = {
-    Elem(12, 2): FLOW_MYSTERY,
-    Elem(14, 2): FLOW_PULSES,
-    Elem(16, 2): FLOW_SECONDS,
+    Elem(12): FLOW_KEY,
+    Elem(13): FLOW_RATE,
+    Elem(14, 2): FLOW_SECONDS,
+    Elem(16, 2): FLOW_PULSES,
     # Elem(18, 2): TEMP_COFFEE,
     # Elem(20, 2): TEMP_STEAM,
 }
@@ -399,19 +416,19 @@ class Msg:
     SET_PREBREWING_ENABLE = 10
     SET_AUTO_SCHED = 11
     SET_DOSE = 12
-    SET_DOSE_TEA = 13
+    SET_DOSE_HOT_WATER = 13
     SET_PREBREW_TIMES = 14
     GET_DRINK_STATS = 15
     GET_WATER_FLOW = 16
     GET_USAGE_STATS = 17
 
-    """Dose command starts at 0x14 for the first key and increments by 2 thereafter"""
+    """Dose command starts at 0x14 for the first key and increments by 2 thereafter."""
     DOSE_KEY_BASE = 0x14
 
-    """Prebrew on base"""
+    """Prebrew on base."""
     PREBREW_ON_BASE = 0x0C
 
-    """Prebrew off base"""
+    """Prebrew off base."""
     PREBREW_OFF_BASE = 0x10
 
     READ = "R"
@@ -461,6 +478,17 @@ MSGS = {
     Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", None),
     # Write config for keys (second byte is base + the key number and will be replaced)
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
-    Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", None),
+    Msg.SET_DOSE_HOT_WATER: Msg(Msg.WRITE, "001E0001", None),
     Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", None),
 }
+
+# 0000:001f - Config
+# 0020:004C - Drink Stats
+# 0050:0068 - Usage Stats
+# 0070:00AF - Unused (FF)
+# 00B0:00BB - Module Serial Number
+# 00C0:00CB - Module Serial Number
+# 00D0:00DF - Machine Name
+# 00E0:00FF - Unused (00)
+# 0100:010F - Machine Serial Number
+# 0110:011F -

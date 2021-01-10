@@ -16,7 +16,7 @@ from .msgs import (
     AUTO_BITFIELD_MAP,
     AUTO_SCHED_MAP,
     DOSE_K1,
-    DOSE_TEA,
+    DOSE_HOT_WATER,
     FIRMWARE_VER,
     GLOBAL_AUTO,
     MODEL_GS3_AV,
@@ -264,11 +264,11 @@ class LMDirect(Connection):
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_dose_tea(self, seconds=None):
-        """Set the tea/hot water dose in seconds."""
+    async def set_dose_hot_water(self, seconds=None):
+        """Set the hot water dose in seconds."""
 
         if seconds is None:
-            raise InvalidInput("set_dose_tea: Seconds not specified")
+            raise InvalidInput("set_dose_hot_water: Seconds not specified")
 
         if isinstance(seconds, str):
             seconds = int(seconds)
@@ -278,10 +278,10 @@ class LMDirect(Connection):
             msg = f"Invalid values seconds:{seconds}"
             raise InvalidInput(msg)
 
-        self._current_status[DOSE_TEA] = seconds
+        self._current_status[DOSE_HOT_WATER] = seconds
 
         data = self.convert_to_ascii(seconds, size=1)
-        await self._send_msg(Msg.SET_DOSE_TEA, data=data)
+        await self._send_msg(Msg.SET_DOSE_HOT_WATER, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
 

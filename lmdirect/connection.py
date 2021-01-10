@@ -17,6 +17,8 @@ from .msgs import (
     DRINK_OFFSET_MAP,
     FIRMWARE_VER,
     GATEWAY_DRINK_MAP,
+    HEATING_STATE,
+    HEATING_VALUES,
     MSGS,
     SERIAL_NUMBERS,
     UPDATE_AVAILABLE,
@@ -25,6 +27,7 @@ from .msgs import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 class Connection:
@@ -218,7 +221,9 @@ class Connection:
             self._start_time = datetime.now()
 
         while self._run:
-            encoded_data = await self._reader.read(BUFFER_SIZE)
+            encoded_data = await self._reader.readuntil(separator=b"%")
+            # encoded_data = await self._reader.read(BUFFER_SIZE)
+
             if encoded_data is not None:
                 loop = asyncio.get_event_loop()
                 fn = partial(self._cipher.decrypt, encoded_data[1:-1])
@@ -259,6 +264,9 @@ class Connection:
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug(f"Message={msg}, Data={data}")
+        # print(f"{msg[:4]}: {data}")
+
+        msg_id = None
 
         if msg_type == Msg.WRITE:
             if Msg.RESPONSE_GOOD not in data:
@@ -276,21 +284,20 @@ class Connection:
                 None,
             )
 
-            if msg_id is None:
-                _LOGGER.error(f"Unexpected response: {plaintext}")
-                return False
-            else:
+            if msg_id is not None:
                 cur_msg = MSGS[msg_id]
 
-            """Notify any listeners for this message."""
-            [
-                await x[1]((msg_id, x[1]), data)
-                for x in self._raw_callback_list
-                if MSGS[x[0]].msg == msg
-            ]
+                """Notify any listeners for this message."""
+                [
+                    await x[1]((msg_id, x[1]), data)
+                    for x in self._raw_callback_list
+                    if MSGS[x[0]].msg == msg
+                ]
 
-            if cur_msg.map is not None:
-                await self._populate_items(data, cur_msg)
+                if cur_msg.map is not None:
+                    await self._populate_items(data, cur_msg)
+            # else:
+            #     _LOGGER.error(f"Unexpected response: {plaintext}")
 
         if msg in self._responses_waiting:
             self._responses_waiting.remove(msg)
@@ -298,7 +305,7 @@ class Connection:
             if finished:
                 _LOGGER.debug("Received all responses")
 
-        return True
+        return msg_id is not None
 
     async def _populate_items(self, data, cur_msg):
         """Process all the fields and populate shared dict."""
@@ -344,12 +351,21 @@ class Connection:
             elif map[elem] == DAYS_SINCE_BUILT:
                 """Convert hours to days."""
                 value = round(value / 24)
+            elif map[elem] == HEATING_STATE:
+                value = [
+                    x for x in HEATING_VALUES if HEATING_VALUES[x] & value
+                ] or "off"
 
             self._current_status[map[elem]] = value
 
     async def _send_msg(self, msg_id, data=None, key=None):
         """Send command to the espresso machine."""
+        msg = MSGS[msg_id]
 
+        _LOGGER.debug(f"Sending {msg.msg} with {data} {key}")
+        await self._send_raw_msg(msg.msg, msg.msg_type, data, key)
+
+    async def _send_raw_msg(self, msg, msg_type, data=None, key=None):
         def checksum(buffer):
             """Compute check byte."""
             buffer = bytes(buffer, "utf-8")
@@ -357,9 +373,6 @@ class Connection:
 
         """Prevent race conditions - can be called from different tasks."""
         async with self._lock:
-            msg = MSGS[msg_id]
-            _LOGGER.debug(f"Sending {msg.msg} with {data}")
-
             """Connect if we don't have an active connection."""
             result = await self._connect()
 
@@ -370,12 +383,9 @@ class Connection:
                 raise ConnectionFail(f"self._writer={self._writer}")
 
             """If a key was provided, replace the second byte of the message."""
-            msg_to_send = msg.msg if not key else msg.msg[:2] + key + msg.msg[4:]
+            msg_to_send = msg if not key else msg[:2] + key + msg[4:]
 
-            if key:
-                msg_to_send = msg_to_send[:2] + key + msg_to_send[4:]
-
-            plaintext = msg.msg_type + msg_to_send
+            plaintext = msg_type + msg_to_send
 
             if data is not None:
                 plaintext += data
@@ -397,8 +407,6 @@ class Connection:
 
             """Note when the command was sent."""
             self._start_time = datetime.now()
-
-            # _LOGGER.debug("Finished sending")
 
 
 class AuthFail(BaseException):

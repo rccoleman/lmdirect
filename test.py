@@ -1,6 +1,7 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
-from lmdirect.msgs import AUTO_BITFIELD_MAP
+from lmdirect.msgs import AUTO_BITFIELD_MAP, Msg
+import time
 
 from lmdirect.const import *
 
@@ -66,7 +67,7 @@ class lmtest:
         self.lmdirect.register_callback(self.update)
         # self.lmdirect.register_raw_callback(Msg.GET_AUTO_SCHED, self.raw_callback)
 
-        self._run = True
+        self._run = False
 
         self._poll_status_task = asyncio.get_event_loop().create_task(
             self.poll_status_task(), name="Request Status Task"
@@ -75,7 +76,7 @@ class lmtest:
         while True:
             try:
                 print(
-                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <key> <sec>, 8=Tea Dose <sec>, 8=PB times <key> <on off>: "
+                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <key> <sec>, 8=Hot Water Dose <sec>, 8=PB times <key> <on off>: "
                 )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
@@ -98,7 +99,8 @@ class lmtest:
                     if check_args(2):
                         await self.lmdirect.set_power(args[1] == "on")
                 elif args[0] == "2":
-                    print(self.lmdirect.current_status)
+                    if check_args(1):
+                        print(self.lmdirect.current_status)
                 elif args[0] == "3":
                     if check_args(2):
                         await self.lmdirect.set_coffee_temp(args[1])
@@ -118,10 +120,35 @@ class lmtest:
                         await self.lmdirect.set_dose(args[1], args[2])
                 elif args[0] == "8":
                     if check_args(2):
-                        await self.lmdirect.set_dose_tea(args[1])
+                        await self.lmdirect.set_dose_hot_water(args[1])
                 elif args[0] == "9":
                     if check_args(3):
                         await self.lmdirect.set_prebrew_times(args[1], args[2], args[3])
+                elif args[0] == "10":
+                    if check_args(2):
+                        await self.lmdirect._send_raw_msg(args[1], Msg.READ)
+                elif args[0] == "11":
+                    if check_args(2):
+                        await asyncio.gather(
+                            *[
+                                self.lmdirect._send_raw_msg(
+                                    args[1]
+                                    + self.lmdirect.convert_to_ascii(i, 1)
+                                    + "0010",
+                                    Msg.READ,
+                                )
+                                for i in range(0, 0xFF, 0x10)
+                            ]
+                        )
+                        # for i in range(0, 0xFF, 0x10):
+                        #     # print(
+                        #     #     args[1] + self.lmdirect.convert_to_ascii(i, 1) + "000F"
+                        #     # )
+                        #     await self.lmdirect._send_raw_msg(
+                        #         args[1] + self.lmdirect.convert_to_ascii(i, 1) + "000F",
+                        #         Msg.READ,
+                        #     )
+                        #     time.sleep(3)
             except KeyboardInterrupt:
                 break
 
