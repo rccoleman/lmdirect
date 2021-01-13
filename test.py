@@ -1,7 +1,6 @@
 from lmdirect import LMDirect
 import asyncio, json, sys, logging
 from lmdirect.msgs import AUTO_BITFIELD_MAP, Msg
-import time
 
 from lmdirect.const import *
 
@@ -10,6 +9,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+_LOGGER.setLevel(logging.DEBUG)
+logging.getLogger("lmdirect").setLevel(logging.DEBUG)
 
 
 class lmtest:
@@ -140,15 +141,6 @@ class lmtest:
                                 for i in range(0, 0xFF, 0x10)
                             ]
                         )
-                        # for i in range(0, 0xFF, 0x10):
-                        #     # print(
-                        #     #     args[1] + self.lmdirect.convert_to_ascii(i, 1) + "000F"
-                        #     # )
-                        #     await self.lmdirect._send_raw_msg(
-                        #         args[1] + self.lmdirect.convert_to_ascii(i, 1) + "000F",
-                        #         Msg.READ,
-                        #     )
-                        #     time.sleep(3)
             except KeyboardInterrupt:
                 break
 

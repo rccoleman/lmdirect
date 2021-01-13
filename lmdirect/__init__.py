@@ -126,11 +126,11 @@ class LMDirect(Connection):
 
     """Utils"""
 
-    def convert_to_ascii(self, value, size):
+    def _convert_to_ascii(self, value, size):
         """Convert an integer value to ASCII-encoded hex."""
         return ("%0" + str(size * 2) + "X") % value
 
-    def findkey(self, find_value, dict):
+    def _findkey(self, find_value, dict):
         """Find a key from the value in a dict."""
         return next(
             (key for key, value in dict.items() if value == find_value),
@@ -141,7 +141,7 @@ class LMDirect(Connection):
 
     async def set_power(self, power):
         """Send power on or power off commands."""
-        value = self.convert_to_ascii(0x01 if power else 0x00, size=1)
+        value = self._convert_to_ascii(0x01 if power else 0x00, size=1)
         await self._send_msg(Msg.SET_POWER, data=value)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
@@ -158,7 +158,7 @@ class LMDirect(Connection):
 
             try:
                 """Find the bit to modify."""
-                elem = self.findkey(AUTO_BITFIELD, AUTO_SCHED_MAP)
+                elem = self._findkey(AUTO_BITFIELD, AUTO_SCHED_MAP)
 
                 """The strings are ASCII-encoded hex, so each value takes 2 bytes."""
                 index = elem.index * 2
@@ -166,8 +166,8 @@ class LMDirect(Connection):
 
                 """Extract value for this field."""
                 orig_value = int(data[index : index + size], 16)
-                bitmask = 0x01 << self.findkey(day_of_week, AUTO_BITFIELD_MAP)
-                new_value = self.convert_to_ascii(
+                bitmask = 0x01 << self._findkey(day_of_week, AUTO_BITFIELD_MAP)
+                new_value = self._convert_to_ascii(
                     orig_value | bitmask if enable else orig_value & ~bitmask, 1
                 )
 
@@ -207,7 +207,7 @@ class LMDirect(Connection):
 
             try:
                 """Find the "on" element."""
-                elem = self.findkey(day_of_week + MON_ON[3:], AUTO_SCHED_MAP)
+                elem = self._findkey(day_of_week + MON_ON[3:], AUTO_SCHED_MAP)
 
                 """The strings are ASCII-encoded hex, so each value takes 2 bytes and there 2 of them."""
                 index = elem.index * 2
@@ -216,8 +216,8 @@ class LMDirect(Connection):
                 """Construct the new "on" and "off" values."""
                 buf_to_send = (
                     data[:index]
-                    + self.convert_to_ascii(hour_on, 1)
-                    + self.convert_to_ascii(hour_off, 1)
+                    + self._convert_to_ascii(hour_on, 1)
+                    + self._convert_to_ascii(hour_off, 1)
                     + data[index + size :]
                 )
 
@@ -258,8 +258,8 @@ class LMDirect(Connection):
 
         self._current_status[DOSE_K1.replace("1", str(key))] = pulses
 
-        data = self.convert_to_ascii(pulses, size=2)
-        key = self.convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
+        data = self._convert_to_ascii(pulses, size=2)
+        key = self._convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
         await self._send_msg(Msg.SET_DOSE, key=key, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
@@ -280,7 +280,7 @@ class LMDirect(Connection):
 
         self._current_status[DOSE_HOT_WATER] = seconds
 
-        data = self.convert_to_ascii(seconds, size=1)
+        data = self._convert_to_ascii(seconds, size=1)
         await self._send_msg(Msg.SET_DOSE_HOT_WATER, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_MAIN)
@@ -318,13 +318,13 @@ class LMDirect(Connection):
         self._current_status[PREBREWING_TOFF_K1.replace("1", str(key))] = time_off
 
         """Set "on" time."""
-        key_on = self.convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
-        data = self.convert_to_ascii(int(time_on * 10), size=1)
+        key_on = self._convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
+        data = self._convert_to_ascii(int(time_on * 10), size=1)
         await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_on, data=data)
 
         """Set "off" time."""
-        key_off = self.convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
-        data = self.convert_to_ascii(int(time_off * 10), size=1)
+        key_off = self._convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
+        data = self._convert_to_ascii(int(time_off * 10), size=1)
         await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_off, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_PREBREW)
@@ -342,7 +342,7 @@ class LMDirect(Connection):
 
         self._current_status[TSET_COFFEE] = temp
 
-        data = self.convert_to_ascii(int(temp * 10), size=2)
+        data = self._convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
         await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
         self._call_callbacks(entity_type=TYPE_COFFEE_TEMP)
@@ -360,22 +360,22 @@ class LMDirect(Connection):
 
         self._current_status[TSET_STEAM] = temp
 
-        data = self.convert_to_ascii(int(temp * 10), size=2)
+        data = self._convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
         await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
         self._call_callbacks(entity_type=TYPE_STEAM_TEMP)
 
     async def set_prebrewing_enable(self, enable):
         """Turn prebrewing on or off."""
-        data = self.convert_to_ascii(0x01 if enable else 0x00, size=1)
+        data = self._convert_to_ascii(0x01 if enable else 0x00, size=1)
         await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
         await self._send_msg(Msg.GET_CONFIG)
         self._call_callbacks(entity_type=TYPE_PREBREW)
 
 
 class InvalidInput(Exception):
-    """Error to indicate there is no connection."""
+    """Error to indicate that invalid parameters were provided."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
         super().__init__(msg)

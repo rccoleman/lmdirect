@@ -32,7 +32,6 @@ from .msgs import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 
 class Connection:
@@ -78,13 +77,13 @@ class Connection:
                 password=machine_info[PASSWORD],
                 headers=headers,
             )
-        except OAuthError:
+        except OAuthError as err:
             await client.aclose()
-            raise AuthFail("Authorization failure")
+            raise AuthFail("Authorization failure") from err
 
         except Exception as err:
             await self.close()
-            raise AuthFail(f"Caught: {type(err)}, {err}")
+            raise AuthFail(f"Caught: {type(err)}, {err}") from err
 
         """Only retrieve info if we're missing something."""
         if any(
@@ -136,7 +135,9 @@ class Connection:
                     self._machine_info
                 )
             except Exception as err:
-                raise ConnectionFail(f"Exception retrieving machine info: {err}")
+                raise ConnectionFail(
+                    f"Exception retrieving machine info: {err}"
+                ) from err
 
         if not self._cipher:
             self._cipher = AESCipher(self._machine_info[KEY])
@@ -154,7 +155,7 @@ class Connection:
             return None
 
         except Exception as err:
-            raise ConnectionFail(f"Cannot connect to machine: {err}")
+            raise ConnectionFail(f"Cannot connect to machine: {err}") from err
 
         """Start listening for responses."""
         await self.start_read_task()
@@ -436,7 +437,7 @@ class AuthFail(Exception):
     """Error to indicate there is invalid auth info."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
         super().__init__(msg)
 
 
@@ -444,5 +445,5 @@ class ConnectionFail(Exception):
     """Error to indicate there is no connection."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
         super().__init__(msg)
