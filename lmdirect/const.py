@@ -29,7 +29,8 @@ DRINKS_K2_OFFSET = "drinks_k2_offset"
 DRINKS_K3_OFFSET = "drinks_k3_offset"
 DRINKS_K4_OFFSET = "drinks_k4_offset"
 CONTINUOUS_OFFSET = "continuous_offset"
-HOT_WATER_OFFSET = "hot_water_offset"
+FLUSHING_OFFSET = "flushing_offset"
+CALCULATED_VALUE = "calculated_value"
 
 CONFIG_PARAMS = [
     HOST,
@@ -42,10 +43,4 @@ CONFIG_PARAMS = [
     SERIAL_NUMBER,
     MACHINE_NAME,
     MODEL_NAME,
-    DRINKS_K1_OFFSET,
-    DRINKS_K2_OFFSET,
-    DRINKS_K3_OFFSET,
-    DRINKS_K4_OFFSET,
-    CONTINUOUS_OFFSET,
-    HOT_WATER_OFFSET,
 ]

@@ -373,8 +373,9 @@ class LMDirect(Connection):
         self._call_callbacks(entity_type=TYPE_PREBREW)
 
 
-class InvalidInput(BaseException):
+class InvalidInput(Exception):
     """Error to indicate there is no connection."""
 
     def __init__(self, msg):
         _LOGGER.error(msg)
+        super().__init__(msg)

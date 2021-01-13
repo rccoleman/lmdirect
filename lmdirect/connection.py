@@ -12,6 +12,7 @@ from .const import *
 from .msgs import (
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
+    CURRENT_PULSE_COUNT,
     DAYS_SINCE_BUILT,
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
@@ -19,8 +20,12 @@ from .msgs import (
     GATEWAY_DRINK_MAP,
     HEATING_STATE,
     HEATING_VALUES,
+    KEY_ACTIVE,
     MSGS,
     SERIAL_NUMBERS,
+    TOTAL_COFFEE,
+    TOTAL_COFFEE_ACTIVATIONS,
+    TOTAL_FLUSHING,
     UPDATE_AVAILABLE,
     Elem,
     Msg,
@@ -271,8 +276,10 @@ class Connection:
         if msg_type == Msg.WRITE:
             if Msg.RESPONSE_GOOD not in data:
                 _LOGGER.error(f"Command Failed: {msg}: {data}")
+                return False
             else:
                 _LOGGER.debug(f"Command Succeeded: {msg}: {data}")
+                return True
         else:
             """Find the matching item or returns None."""
             msg_id = next(
@@ -296,8 +303,8 @@ class Connection:
 
                 if cur_msg.map is not None:
                     await self._populate_items(data, cur_msg)
-            # else:
-            #     _LOGGER.error(f"Unexpected response: {plaintext}")
+            else:
+                _LOGGER.error(f"Unexpected response: {plaintext}")
 
         if msg in self._responses_waiting:
             self._responses_waiting.remove(msg)
@@ -311,16 +318,20 @@ class Connection:
         """Process all the fields and populate shared dict."""
         map = cur_msg.map
         for elem in map:
-            """The strings are ASCII-encoded hex, so each value takes 2 bytes."""
-            index = elem.index * 2
-            size = elem.size * 2
+            value = None
 
-            """Extract value for this field."""
-            value = data[index : index + size]
+            """Don't decode a value if we just plan to calculate it"""
+            if elem.index != CALCULATED_VALUE:
+                """The strings are ASCII-encoded hex, so each value takes 2 bytes."""
+                index = elem.index * 2
+                size = elem.size * 2
 
-            if elem.type == Elem.INT:
-                """Convert from ascii-encoded hex."""
-                value = int(value, 16)
+                """Extract value for this field."""
+                value = data[index : index + size]
+
+                if elem.type == Elem.INT:
+                    """Convert from ascii-encoded hex."""
+                    value = int(value, 16)
 
             if any(x in map[elem] for x in DIVIDE_KEYS):
                 value = value / 10
@@ -340,21 +351,33 @@ class Connection:
                     value = value >> 1
                 continue
             elif map[elem] in DRINK_OFFSET_MAP:
-                offset_index = DRINK_OFFSET_MAP[map[elem]]
+                if map[elem] == TOTAL_FLUSHING:
+                    value = (
+                        self._current_status[TOTAL_COFFEE_ACTIVATIONS]
+                        - self._current_status[TOTAL_COFFEE]
+                    )
+                offset_key = DRINK_OFFSET_MAP[map[elem]]
                 if map[elem] not in self._current_status:
                     """If we haven't seen the value before, calculate the offset."""
                     self._current_status.update(
-                        {offset_index: value - self._current_status[offset_index]}
+                        {offset_key: value - self._current_status[offset_key]}
                     )
                 """Apply the offset to the value."""
-                value -= self._current_status[offset_index]
+                value = value - self._current_status[offset_key]
             elif map[elem] == DAYS_SINCE_BUILT:
                 """Convert hours to days."""
                 value = round(value / 24)
             elif map[elem] == HEATING_STATE:
-                value = [
-                    x for x in HEATING_VALUES if HEATING_VALUES[x] & value
-                ] or "off"
+                value = [x for x in HEATING_VALUES if HEATING_VALUES[x] & value]
+                """Don't add attribute and remove it if machine isn't currently running."""
+                if not value:
+                    self._current_status.pop(map[elem], None)
+                    continue
+            elif map[elem] in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
+                """Don't add attributes and remove them if machine isn't currently running."""
+                if not value:
+                    self._current_status.pop(map[elem], None)
+                    continue
 
             self._current_status[map[elem]] = value
 
@@ -409,15 +432,17 @@ class Connection:
             self._start_time = datetime.now()
 
 
-class AuthFail(BaseException):
+class AuthFail(Exception):
     """Error to indicate there is invalid auth info."""
 
     def __init__(self, msg):
         _LOGGER.error(msg)
+        super().__init__(msg)
 
 
-class ConnectionFail(BaseException):
+class ConnectionFail(Exception):
     """Error to indicate there is no connection."""
 
     def __init__(self, msg):
         _LOGGER.error(msg)
+        super().__init__(msg)

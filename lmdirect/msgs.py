@@ -8,12 +8,13 @@ MODEL_LM = "Linea Mini"
 # Tags
 
 from lmdirect.const import (
+    CALCULATED_VALUE,
     CONTINUOUS_OFFSET,
     DRINKS_K1_OFFSET,
     DRINKS_K2_OFFSET,
     DRINKS_K3_OFFSET,
     DRINKS_K4_OFFSET,
-    HOT_WATER_OFFSET,
+    FLUSHING_OFFSET,
 )
 
 DATE_RECEIVED = "date_received"
@@ -46,20 +47,22 @@ CONTINUOUS = "continuous"
 TOTAL_COFFEE = "total_coffee"
 HOT_WATER = "hot_water"
 DRINK_MYSTERY = "drink_mystery"
-TOTAL_DRINKS = "total_drinks"
+TOTAL_COFFEE_ACTIVATIONS = "total_coffee_activations"
 HOT_WATER_2 = "hot_water_2"
 DRINKS_HOT_WATER = "drinks_hot_water"
+TOTAL_FLUSHING = "total_flushing"
 
 HEATING_STATE = "heating_state"
 STEAM_HEATER_ON = "steam_heater_on"
 COFFEE_HEATER_ON = "coffee_heater_on"
 HEATING_ON = "heating_on"
+PUMP_ON = "pump_on"
+BREW_SOLENOID_ON = "brew_solenoid_on"
+HOT_WATER_SOLENOID_ON = "hot_water_solenoid_on"
+BOILER_FILL_SOLENOID_ON = "boiler_fill_solenoid_on"
 
-HEATING_VALUES = {
-    STEAM_HEATER_ON: 0x40,
-    COFFEE_HEATER_ON: 0x20,
-    HEATING_ON: 0x10,
-}
+KEY_ACTIVE = "key_active"
+CURRENT_PULSE_COUNT = "current_pulse_count"
 
 COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
 STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
@@ -175,10 +178,22 @@ STATUS_MAP = {
     Elem(1): FIRMWARE_VER,
     Elem(3, 12, type=Elem.STRING): MODULE_SER_NUM,
     Elem(15): POWER_MYSTERY,
-    Elem(23): POWER,
+    Elem(17): KEY_ACTIVE,
+    Elem(19, 2): CURRENT_PULSE_COUNT,
+    # Elem(23): POWER,
     Elem(27): HEATING_STATE,
     # Elem(28, 2): TEMP_COFFEE,
     # Elem(30, 2): TEMP_STEAM,
+}
+
+HEATING_VALUES = {
+    HEATING_ON: 0x10,
+    COFFEE_HEATER_ON: 0x20,
+    STEAM_HEATER_ON: 0x40,
+    PUMP_ON: 0x01,
+    BREW_SOLENOID_ON: 0x02,
+    BOILER_FILL_SOLENOID_ON: 0x04,  # ??
+    HOT_WATER_SOLENOID_ON: 0x08,
 }
 
 # R
@@ -204,6 +219,7 @@ STATUS_MAP = {
 # 35: Check byte
 
 CONFIG_MAP = {
+    Elem(0): POWER,
     Elem(7, 2): TSET_COFFEE,
     Elem(9, 2): TSET_STEAM,
     Elem(11): ENABLE_PREBREWING,
@@ -318,17 +334,17 @@ DATETIME_MAP = {
 
 # R
 # 0020002C
-# 0000014A: Key 1 (1 espresso)
-# 00000096: Key 2 (2 espressos) * 2 = 0x12C
-# 000001B0: Key 3 (1 coffee)
-# 00000021: Key 4 (2 coffees) * 2 = 0x42
-# 00000563: Continuous
-# 00000914: From Coffee boiler (total of above)
-# 00000010: Hot water
-# 0000000A: ?? Doesn't seem to change
-# 00000ADE: ?? Increments every button press
-# 00000010: Also hot water?
-# 00000032: # Hot water if you let it finish
+# 0000014A: Key 1 (1 espresso) Completed Drinks
+# 00000096: Key 2 (2 espressos) Completed Drinks
+# 000001B0: Key 3 (1 coffee) Completed Drinks
+# 00000021: Key 4 (2 coffees) Completed Drinks
+# 00000563: Continuous Completed Drinks
+# 00000914: Total Completed Coffee Drinks (total of above)
+# 00000010: Hot water activations
+# 0000000A: Increments every so often (?)
+# 00000ADE: Total Coffee Drink Activations
+# 00000010: Hot water activations
+# 00000032: Completed Hot Water
 
 DRINK_STATS_MAP = {
     Elem(0, 4): DRINKS_K1,
@@ -339,13 +355,14 @@ DRINK_STATS_MAP = {
     Elem(20, 4): TOTAL_COFFEE,
     Elem(24, 4): HOT_WATER,
     Elem(28, 4): DRINK_MYSTERY,
-    Elem(32, 4): TOTAL_DRINKS,
+    Elem(32, 4): TOTAL_COFFEE_ACTIVATIONS,
     Elem(36, 4): HOT_WATER_2,
     Elem(40, 4): DRINKS_HOT_WATER,
+    Elem(CALCULATED_VALUE): TOTAL_FLUSHING,
 }
 
 GATEWAY_DRINK_MAP = {
-    -1: HOT_WATER_OFFSET,
+    -1: FLUSHING_OFFSET,
     0: DRINKS_K1_OFFSET,
     1: DRINKS_K2_OFFSET,
     2: DRINKS_K3_OFFSET,
@@ -354,7 +371,7 @@ GATEWAY_DRINK_MAP = {
 }
 
 DRINK_OFFSET_MAP = {
-    HOT_WATER: HOT_WATER_OFFSET,
+    TOTAL_FLUSHING: FLUSHING_OFFSET,
     DRINKS_K1: DRINKS_K1_OFFSET,
     DRINKS_K2: DRINKS_K2_OFFSET,
     DRINKS_K3: DRINKS_K3_OFFSET,
