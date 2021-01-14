@@ -40,7 +40,7 @@ class lmtest:
         return creds
 
     def update(self, **kwargs):
-        _LOGGER.debug("Updated: {}".format(self.lmdirect.current_status))
+        pass
 
     async def raw_callback(self, key, data):
         self.lmdirect.deregister_raw_callback(key)
@@ -66,9 +66,8 @@ class lmtest:
 
         self.lmdirect = LMDirect(creds)
         self.lmdirect.register_callback(self.update)
-        # self.lmdirect.register_raw_callback(Msg.GET_AUTO_SCHED, self.raw_callback)
 
-        self._run = False
+        self._run = True
 
         self._poll_status_task = asyncio.get_event_loop().create_task(
             self.poll_status_task(), name="Request Status Task"
