@@ -17,6 +17,7 @@ from .msgs import (
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
     FIRMWARE_VER,
+    FRONT_PANEL_DISPLAY,
     GATEWAY_DRINK_MAP,
     HEATING_STATE,
     HEATING_VALUES,
@@ -97,6 +98,9 @@ class Connection:
                 machine_info[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
                 machine_info[MACHINE_NAME] = fleet["name"]
                 machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
+
+        """Add the machine name to the dict so that it's avaialble for attributes"""
+        self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
 
         if any(x not in self._current_status for x in DRINK_OFFSET_MAP.values()):
             drink_info = await client.get(
@@ -379,6 +383,18 @@ class Connection:
                 if not value:
                     self._current_status.pop(map[elem], None)
                     continue
+            elif map[elem] == FRONT_PANEL_DISPLAY:
+                value = (
+                    bytes.fromhex(value)
+                    .decode("latin-1")
+                    .replace("\xdf", "\u00b0")  # Degree symbol
+                    .replace(
+                        "\xdb", "\u25A1"
+                    )  # turn a block into an outline block (heating element off)
+                    .replace(
+                        "\xff", "\u25A0"
+                    )  # turn \xff into a solid block (heating element on)
+                )
 
             self._current_status[map[elem]] = value
 

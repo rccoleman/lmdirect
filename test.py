@@ -15,7 +15,7 @@ logging.getLogger("lmdirect").setLevel(logging.DEBUG)
 
 class lmtest:
     def __init__(self):
-        self._run = True
+        self._run = False
 
     def read_config(self):
         """Read key and machine IP from config file"""
@@ -66,8 +66,6 @@ class lmtest:
 
         self.lmdirect = LMDirect(creds)
         self.lmdirect.register_callback(self.update)
-
-        self._run = True
 
         self._poll_status_task = asyncio.get_event_loop().create_task(
             self.poll_status_task(), name="Request Status Task"
@@ -133,7 +131,7 @@ class lmtest:
                             *[
                                 self.lmdirect._send_raw_msg(
                                     args[1]
-                                    + self.lmdirect.convert_to_ascii(i, 1)
+                                    + self.lmdirect._convert_to_ascii(i, 1)
                                     + "0010",
                                     Msg.READ,
                                 )

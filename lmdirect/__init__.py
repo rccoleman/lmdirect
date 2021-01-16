@@ -100,6 +100,8 @@ class LMDirect(Connection):
             Msg.GET_DATETIME,
             Msg.GET_DRINK_STATS,
             Msg.GET_USAGE_STATS,
+            Msg.GET_FRONT_DISPLAY,
+            Msg.GET_MYSTERY,
         ]
 
         _LOGGER.debug("Requesting status")

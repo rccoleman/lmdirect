@@ -51,6 +51,9 @@ TOTAL_COFFEE_ACTIVATIONS = "total_coffee_activations"
 HOT_WATER_2 = "hot_water_2"
 DRINKS_HOT_WATER = "drinks_hot_water"
 TOTAL_FLUSHING = "total_flushing"
+MACHINE_NAME = "machine_name"
+FRONT_PANEL_DISPLAY = "front_panel_display"
+MYSTERY_VALUES = "mystery_values"
 
 HEATING_STATE = "heating_state"
 STEAM_HEATER_ON = "steam_heater_on"
@@ -417,6 +420,41 @@ USAGE_MAP = {
     Elem(20, 4): WATER_ON_SECONDS,
 }
 
+# 3230322E39DF46: 202.9°F
+# 20: Space
+# DBDB: Boiler states
+# 30393A32386100: 09:28a
+# 42555A5A2020202020202020: BUZZ
+# 543A3037: T:07
+
+
+FRONT_DISPLAY_MAP = {
+    Elem(0, 33, Elem.STRING): FRONT_PANEL_DISPLAY,
+}
+
+# 03
+# E7
+# 02
+# D8
+# 04
+# F8
+# 09
+# 5B
+# 02
+# C2
+# 03
+# 04
+# 08
+# 9E
+# 02
+# 49
+# 00
+# F5
+
+MYSTERY_MAP = {
+    Elem(0, 18, Elem.STRING): MYSTERY_VALUES,
+}
+
 
 class Msg:
     GET_STATUS = 0
@@ -438,6 +476,8 @@ class Msg:
     GET_DRINK_STATS = 15
     GET_WATER_FLOW = 16
     GET_USAGE_STATS = 17
+    GET_FRONT_DISPLAY = 18
+    GET_MYSTERY = 19
 
     """Dose command starts at 0x14 for the first key and increments by 2 thereafter."""
     DOSE_KEY_BASE = 0x14
@@ -487,6 +527,8 @@ MSGS = {
     Msg.GET_DRINK_STATS: Msg(Msg.READ, "0020002C", DRINK_STATS_MAP),
     Msg.GET_WATER_FLOW: Msg(Msg.STREAM, "60000016", WATER_FLOW_MAP),
     Msg.GET_USAGE_STATS: Msg(Msg.READ, "00500018", USAGE_MAP),
+    Msg.GET_FRONT_DISPLAY: Msg(Msg.READ, "60ED0021", FRONT_DISPLAY_MAP),
+    Msg.GET_MYSTERY: Msg(Msg.READ, "60DA0012", MYSTERY_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
