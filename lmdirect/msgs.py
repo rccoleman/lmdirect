@@ -54,6 +54,24 @@ TOTAL_FLUSHING = "total_flushing"
 MACHINE_NAME = "machine_name"
 FRONT_PANEL_DISPLAY = "front_panel_display"
 MYSTERY_VALUES = "mystery_values"
+VAL_1 = "val_1"
+VAL_2 = "val_2"
+VAL_3 = "val_3"
+VAL_4 = "val_4"
+VAL_5 = "val_5"
+VAL_6 = "val_6"
+VAL_7 = "val_7"
+VAL_8 = "val_8"
+VAL_9 = "val_9"
+VAL_10 = "val_10"
+VAL_11 = "val_11"
+VAL_12 = "val_12"
+VAL_13 = "val_13"
+VAL_14 = "val_14"
+VAL_15 = "val_15"
+VAL_16 = "val_16"
+VAL_17 = "val_17"
+VAL_18 = "val_18"
 
 HEATING_STATE = "heating_state"
 STEAM_HEATER_ON = "steam_heater_on"
@@ -266,20 +284,20 @@ CONFIG_MAP = {
 
 AUTO_SCHED_MAP = {
     Elem(0): AUTO_BITFIELD,
-    Elem(1): SUN_ON,
-    Elem(2): SUN_OFF,
-    Elem(3): MON_ON,
-    Elem(4): MON_OFF,
-    Elem(5): TUE_ON,
-    Elem(6): TUE_OFF,
-    Elem(7): WED_ON,
-    Elem(8): WED_OFF,
-    Elem(9): THU_ON,
-    Elem(10): THU_OFF,
-    Elem(11): FRI_ON,
-    Elem(12): FRI_OFF,
-    Elem(13): SAT_ON,
-    Elem(14): SAT_OFF,
+    Elem(1): MON_ON,
+    Elem(2): MON_OFF,
+    Elem(3): TUE_ON,
+    Elem(4): TUE_OFF,
+    Elem(5): WED_ON,
+    Elem(6): WED_OFF,
+    Elem(7): THU_ON,
+    Elem(8): THU_OFF,
+    Elem(9): FRI_ON,
+    Elem(10): FRI_OFF,
+    Elem(11): SAT_ON,
+    Elem(12): SAT_OFF,
+    Elem(13): SUN_ON,
+    Elem(14): SUN_OFF,
 }
 
 AUTO_BITFIELD_MAP = {
@@ -452,7 +470,24 @@ FRONT_DISPLAY_MAP = {
 # F5
 
 MYSTERY_MAP = {
-    Elem(0, 18, Elem.STRING): MYSTERY_VALUES,
+    Elem(0): VAL_1,
+    Elem(1): VAL_2,
+    Elem(2): VAL_3,
+    Elem(3): VAL_4,
+    Elem(4): VAL_5,
+    Elem(5): VAL_6,
+    Elem(6): VAL_7,
+    Elem(7): VAL_8,
+    Elem(8): VAL_9,
+    Elem(9): VAL_10,
+    Elem(10): VAL_11,
+    Elem(11): VAL_12,
+    Elem(12): VAL_13,
+    Elem(13): VAL_14,
+    Elem(14): VAL_15,
+    Elem(15): VAL_16,
+    Elem(16): VAL_17,
+    Elem(17): VAL_18,
 }
 
 
