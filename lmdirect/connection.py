@@ -56,6 +56,9 @@ class Connection:
         self._update_available = None
         self._initialized_machine_info = False
 
+        """Maintain temporary states for device states that take a while to update"""
+        self._temp_state = {}
+
     async def retrieve_machine_info(self, machine_info):
         """Retrieve the machine info from the cloud APIs."""
         _LOGGER.debug(f"Retrieving machine info")
@@ -253,8 +256,8 @@ class Connection:
                 else:
                     self._call_callbacks()
 
-                """Exit if we've been reading longer than 5s since the last command."""
-                if datetime.now() > self._start_time + timedelta(seconds=5):
+                """Exit if we've been reading longer than 10s since the last command."""
+                if datetime.now() > self._start_time + timedelta(seconds=10):
                     _LOGGER.debug(f"Exiting loop: {self._responses_waiting}")
 
                     """Flush the wait list."""
@@ -268,6 +271,7 @@ class Connection:
         msg_type = plaintext[0]
         raw_data = plaintext[1:]
         msg = raw_data[:8]
+        retval = True
 
         """Chop off the message and check byte."""
         data = raw_data[8:-2]
@@ -281,10 +285,9 @@ class Connection:
         if msg_type == Msg.WRITE:
             if Msg.RESPONSE_GOOD not in data:
                 _LOGGER.error(f"Command Failed: {msg}: {data}")
-                return False
+                retval = False
             else:
                 _LOGGER.debug(f"Command Succeeded: {msg}: {data}")
-                return True
         else:
             """Find the matching item or returns None."""
             msg_id = next(
@@ -310,6 +313,7 @@ class Connection:
                     await self._populate_items(data, cur_msg)
             else:
                 _LOGGER.error(f"Unexpected response: {plaintext}")
+                retval = False
 
         if msg in self._responses_waiting:
             self._responses_waiting.remove(msg)
@@ -317,9 +321,27 @@ class Connection:
             if finished:
                 _LOGGER.debug("Received all responses")
 
-        return msg_id is not None
+        return retval
 
     async def _populate_items(self, data, cur_msg):
+        def handle_cached_value(element, value):
+            """See if we've stored a temporary value that may take a while to update on the machine"""
+            if element in self._temp_state:
+                if value == self._temp_state[element]:
+                    """Value has updated, so remove the temp value"""
+                    _LOGGER.debug(
+                        f"Element {element} has updated to {value}, pop the cached value"
+                    )
+                    self._temp_state.pop(element, None)
+                else:
+                    """Value hasn't updated yet, so use the cached value"""
+                    _LOGGER.debug(
+                        f"Element {element} hasn't updated yet, so use the cached value {value}"
+                    )
+                    value = self._temp_state[element]
+
+            return value
+
         """Process all the fields and populate shared dict."""
         map = cur_msg.map
         for elem in map:
@@ -352,7 +374,9 @@ class Connection:
             elif map[elem] == AUTO_BITFIELD:
                 for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if value & 0x01 else DISABLED
-                    self._current_status[AUTO_BITFIELD_MAP[item]] = setting
+                    self._current_status[AUTO_BITFIELD_MAP[item]] = handle_cached_value(
+                        AUTO_BITFIELD_MAP[item], setting
+                    )
                     value = value >> 1
                 continue
             elif map[elem] in DRINK_OFFSET_MAP:
@@ -396,7 +420,7 @@ class Connection:
                     )  # turn \xff into a solid block (heating element on)
                 )
 
-            self._current_status[map[elem]] = value
+            self._current_status[map[elem]] = handle_cached_value(map[elem], value)
 
     async def _send_msg(self, msg_id, data=None, key=None):
         """Send command to the espresso machine."""

@@ -12,6 +12,8 @@ from lmdirect.const import (
 
 from .connection import Connection
 from .msgs import (
+    ENABLE_PREBREWING,
+    POWER,
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
     AUTO_SCHED_MAP,
@@ -21,6 +23,7 @@ from .msgs import (
     GLOBAL_AUTO,
     MODEL_GS3_AV,
     MODEL_LM,
+    MON_AUTO,
     MON_OFF,
     MON_ON,
     MSGS,
@@ -143,9 +146,14 @@ class LMDirect(Connection):
 
     async def set_power(self, power):
         """Send power on or power off commands."""
-        value = self._convert_to_ascii(0x01 if power else 0x00, size=1)
+        power_value = 1 if power else 0
+        value = self._convert_to_ascii(power_value, size=1)
         await self._send_msg(Msg.SET_POWER, data=value)
-        await self._send_msg(Msg.GET_CONFIG)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[POWER] = power_value
+
         self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_auto_on_off(self, day_of_week=None, enable=None):
@@ -175,12 +183,14 @@ class LMDirect(Connection):
 
                 buf_to_send = data[:index] + new_value + data[index + size :]
 
-                self._current_status[day_of_week] = ENABLED if enable else DISABLED
-
                 await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
-                await self._send_msg(Msg.GET_AUTO_SCHED)
+
+                """Update the stored values to immediately reflect the change"""
+                for state in [self._temp_state, self._current_status]:
+                    state[day_of_week] = ENABLED if enable else DISABLED
 
                 self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
+
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
 
@@ -223,11 +233,13 @@ class LMDirect(Connection):
                     + data[index + size :]
                 )
 
-                self._current_status[day_of_week + MON_ON[3:]] = hour_on
-                self._current_status[day_of_week + MON_OFF[3:]] = hour_off
-
                 await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
-                await self._send_msg(Msg.GET_AUTO_SCHED)
+
+                """Update the stored values to immediately reflect the change"""
+                for state in [self._temp_state, self._current_status]:
+                    state[day_of_week + MON_ON[3:]] = hour_on
+                    state[day_of_week + MON_OFF[3:]] = hour_off
+
                 self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
             except Exception as err:
                 _LOGGER.debug(f"Caught exception: {err}")
@@ -258,12 +270,14 @@ class LMDirect(Connection):
             msg = f"set_dose: Invalid values pulses:{pulses} key:{key}"
             raise InvalidInput(msg)
 
-        self._current_status[DOSE_K1.replace("1", str(key))] = pulses
-
         data = self._convert_to_ascii(pulses, size=2)
         key = self._convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
         await self._send_msg(Msg.SET_DOSE, key=key, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[DOSE_K1.replace("1", str(key))] = pulses
+
         self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_dose_hot_water(self, seconds=None):
@@ -280,11 +294,13 @@ class LMDirect(Connection):
             msg = f"Invalid values seconds:{seconds}"
             raise InvalidInput(msg)
 
-        self._current_status[DOSE_HOT_WATER] = seconds
-
         data = self._convert_to_ascii(seconds, size=1)
         await self._send_msg(Msg.SET_DOSE_HOT_WATER, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[DOSE_HOT_WATER] = seconds
+
         self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_prebrew_times(self, key=None, time_on=None, time_off=None):
@@ -316,9 +332,6 @@ class LMDirect(Connection):
             msg = f"Invalid values key:{key}"
             raise InvalidInput(msg)
 
-        self._current_status[PREBREWING_TON_K1.replace("1", str(key))] = time_on
-        self._current_status[PREBREWING_TOFF_K1.replace("1", str(key))] = time_off
-
         """Set "on" time."""
         key_on = self._convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
         data = self._convert_to_ascii(int(time_on * 10), size=1)
@@ -328,7 +341,12 @@ class LMDirect(Connection):
         key_off = self._convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
         data = self._convert_to_ascii(int(time_off * 10), size=1)
         await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_off, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[PREBREWING_TON_K1.replace("1", str(key))] = time_on
+            state[PREBREWING_TOFF_K1.replace("1", str(key))] = time_off
+
         self._call_callbacks(entity_type=TYPE_PREBREW)
 
     async def set_coffee_temp(self, temp=None):
@@ -342,11 +360,13 @@ class LMDirect(Connection):
 
         temp = round(temp, 1)
 
-        self._current_status[TSET_COFFEE] = temp
-
         data = self._convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
-        await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[TSET_COFFEE] = temp
+
         self._call_callbacks(entity_type=TYPE_COFFEE_TEMP)
 
     async def set_steam_temp(self, temp=None):
@@ -360,18 +380,26 @@ class LMDirect(Connection):
 
         temp = round(temp, 1)
 
-        self._current_status[TSET_STEAM] = temp
-
         data = self._convert_to_ascii(int(temp * 10), size=2)
         await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
-        await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[TSET_STEAM] = temp
+
         self._call_callbacks(entity_type=TYPE_STEAM_TEMP)
 
     async def set_prebrewing_enable(self, enable):
         """Turn prebrewing on or off."""
-        data = self._convert_to_ascii(0x01 if enable else 0x00, size=1)
+        prebrew_value = 1 if enable else 0
+        data = self._convert_to_ascii(prebrew_value, size=1)
+
         await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[ENABLE_PREBREWING] = prebrew_value
+
         self._call_callbacks(entity_type=TYPE_PREBREW)
 
 
