@@ -97,20 +97,36 @@ MODULE_SER_NUM = "module_ser_num"
 
 UPDATE_AVAILABLE = "update_available"
 
-SUN_ON = "sun_on"
-SUN_OFF = "sun_off"
-MON_ON = "mon_on"
-MON_OFF = "mon_off"
-TUE_ON = "tue_on"
-TUE_OFF = "tue_off"
-WED_ON = "wed_on"
-WED_OFF = "wed_off"
-THU_ON = "thu_on"
-THU_OFF = "thu_off"
-FRI_ON = "fri_on"
-FRI_OFF = "fri_off"
-SAT_ON = "sat_on"
-SAT_OFF = "sat_off"
+SUN_ON_HOUR = "sun_on_hour"
+SUN_OFF_HOUR = "sun_off_hour"
+MON_ON_HOUR = "mon_on_hour"
+MON_OFF_HOUR = "mon_off_hour"
+TUE_ON_HOUR = "tue_on_hour"
+TUE_OFF_HOUR = "tue_off_hour"
+WED_ON_HOUR = "wed_on_hour"
+WED_OFF_HOUR = "wed_off_hour"
+THU_ON_HOUR = "thu_on_hour"
+THU_OFF_HOUR = "thu_off_hour"
+FRI_ON_HOUR = "fri_on_hour"
+FRI_OFF_HOUR = "fri_off_hour"
+SAT_ON_HOUR = "sat_on_hour"
+SAT_OFF_HOUR = "sat_off_hour"
+SUN_ON_HOUR = "sun_on_hour"
+SUN_OFF_HOUR = "sun_off_hour"
+MON_ON_MIN = "mon_on_min"
+MON_OFF_MIN = "mon_off_min"
+TUE_ON_MIN = "tue_on_min"
+TUE_OFF_MIN = "tue_off_min"
+WED_ON_MIN = "wed_on_min"
+WED_OFF_MIN = "wed_off_min"
+THU_ON_MIN = "thu_on_min"
+THU_OFF_MIN = "thu_off_min"
+FRI_ON_MIN = "fri_on_min"
+FRI_OFF_MIN = "fri_off_min"
+SAT_ON_MIN = "sat_on_min"
+SAT_OFF_MIN = "sat_off_min"
+SUN_ON_MIN = "sun_on_min"
+SUN_OFF_MIN = "sun_off_min"
 
 AUTO_BITFIELD = "auto_bitfield"
 GLOBAL_AUTO = "global_auto"
@@ -121,6 +137,8 @@ WED_AUTO = "wed"
 THU_AUTO = "thu"
 FRI_AUTO = "fri"
 SAT_AUTO = "sat"
+
+AUTO_DAYS = [MON_AUTO, TUE_AUTO, WED_AUTO, THU_AUTO, FRI_AUTO, SAT_AUTO, SUN_AUTO]
 
 SECOND = "second"
 MINUTE = "minute"
@@ -284,20 +302,38 @@ CONFIG_MAP = {
 
 AUTO_SCHED_MAP = {
     Elem(0): AUTO_BITFIELD,
-    Elem(1): MON_ON,
-    Elem(2): MON_OFF,
-    Elem(3): TUE_ON,
-    Elem(4): TUE_OFF,
-    Elem(5): WED_ON,
-    Elem(6): WED_OFF,
-    Elem(7): THU_ON,
-    Elem(8): THU_OFF,
-    Elem(9): FRI_ON,
-    Elem(10): FRI_OFF,
-    Elem(11): SAT_ON,
-    Elem(12): SAT_OFF,
-    Elem(13): SUN_ON,
-    Elem(14): SUN_OFF,
+    Elem(1): MON_ON_HOUR,
+    Elem(2): MON_OFF_HOUR,
+    Elem(3): TUE_ON_HOUR,
+    Elem(4): TUE_OFF_HOUR,
+    Elem(5): WED_ON_HOUR,
+    Elem(6): WED_OFF_HOUR,
+    Elem(7): THU_ON_HOUR,
+    Elem(8): THU_OFF_HOUR,
+    Elem(9): FRI_ON_HOUR,
+    Elem(10): FRI_OFF_HOUR,
+    Elem(11): SAT_ON_HOUR,
+    Elem(12): SAT_OFF_HOUR,
+    Elem(13): SUN_ON_HOUR,
+    Elem(14): SUN_OFF_HOUR,
+    Elem(15): MON_ON_MIN,
+    Elem(16): MON_OFF_MIN,
+    Elem(17): TUE_ON_MIN,
+    Elem(18): TUE_OFF_MIN,
+    Elem(19): WED_ON_MIN,
+    Elem(20): WED_OFF_MIN,
+    Elem(21): THU_ON_MIN,
+    Elem(22): THU_OFF_MIN,
+    Elem(23): FRI_ON_MIN,
+    Elem(24): FRI_OFF_MIN,
+    Elem(25): SAT_ON_MIN,
+    Elem(26): SAT_OFF_MIN,
+    Elem(27): SUN_ON_MIN,
+    Elem(28): SUN_OFF_MIN,
+}
+
+AUTO_ENABLE_MAP = {
+    Elem(0): AUTO_BITFIELD,
 }
 
 AUTO_BITFIELD_MAP = {
@@ -497,8 +533,8 @@ class Msg:
     GET_AUTO_SCHED = 2
     SET_POWER = 3
     GET_TEMP_REPORT = 4
-    SET_AUTO_ON = 4
-    SET_AUTO_OFF = 5
+    GET_AUTO_ENABLE = 4
+    SET_AUTO_ENABLE = 5
     GET_SER_NUM = 6
     GET_DATETIME = 7
     SET_COFFEE_TEMP = 8
@@ -514,13 +550,17 @@ class Msg:
     GET_FRONT_DISPLAY = 18
     GET_MYSTERY = 19
 
-    """Dose command starts at 0x14 for the first key and increments by 2 thereafter."""
+    """Auto on/off address starts at 0x11 for Monday and increments by 4 thereafter."""
+    AUTO_ON_OFF_HOUR_BASE = 0x11
+    AUTO_ON_OFF_MIN_BASE = 0x20
+
+    """Dose address starts at 0x14 for the first key and increments by 2 thereafter."""
     DOSE_KEY_BASE = 0x14
 
-    """Prebrew on base."""
+    """Prebrew on address base."""
     PREBREW_ON_BASE = 0x0C
 
-    """Prebrew off base."""
+    """Prebrew off address base."""
     PREBREW_OFF_BASE = 0x10
 
     READ = "R"
@@ -556,6 +596,7 @@ MSGS = {
     Msg.GET_STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
     Msg.GET_CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
     Msg.GET_AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
+    Msg.GET_AUTO_ENABLE: Msg(Msg.READ, "03100001", AUTO_ENABLE_MAP),
     Msg.GET_TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
     Msg.GET_SER_NUM: Msg(Msg.READ, "01000011", SER_NUM_MAP),
     Msg.GET_DATETIME: Msg(Msg.READ, "03000007", DATETIME_MAP),
@@ -569,7 +610,8 @@ MSGS = {
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
     Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", None),
     Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", None),
-    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", None),
+    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "03100002", None),
+    Msg.SET_AUTO_ENABLE: Msg(Msg.WRITE, "03100001", None),
     # Write config for keys (second byte is base + the key number and will be replaced)
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
     Msg.SET_DOSE_HOT_WATER: Msg(Msg.WRITE, "001E0001", None),

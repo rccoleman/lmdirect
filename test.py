@@ -15,7 +15,7 @@ logging.getLogger("lmdirect").setLevel(logging.DEBUG)
 
 class lmtest:
     def __init__(self):
-        self._run = False
+        self._run = True
 
     def read_config(self):
         """Read key and machine IP from config file"""
@@ -74,7 +74,10 @@ class lmtest:
         while True:
             try:
                 print(
-                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>, 6=Auto on/off <0=global or day> <on/off>, 7=Dose <key> <sec>, 8=Hot Water Dose <sec>, 8=PB times <key> <on off>: "
+                    "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>\n"
+                    "6=Auto on/off <0=global or day (mon=1)> <on/off>, 7=Dose <key> <sec>, 8=Hot Water Dose <sec>\n"
+                    "9=PB times <key> <on off>, 10=Read Memory <AAAALLLL>, 11=Read Memory Block <XX>"
+                    "12=Set on/off times <day> <hour_on> <hour_off>:\n"
                 )
                 response = (
                     await loop.run_in_executor(None, sys.stdin.readline)
@@ -137,6 +140,11 @@ class lmtest:
                                 )
                                 for i in range(0, 0xFF, 0x10)
                             ]
+                        )
+                elif args[0] == "12":
+                    if check_args(3):
+                        await self.lmdirect.set_auto_on_off_hours(
+                            AUTO_BITFIELD_MAP[int(args[1])], args[2], args[3]
                         )
             except KeyboardInterrupt:
                 break

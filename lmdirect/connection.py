@@ -372,13 +372,13 @@ class Connection:
                 value = value.partition("\0")[0]
 
             elif map[elem] == AUTO_BITFIELD:
+                bitfield = value
                 for item in AUTO_BITFIELD_MAP:
-                    setting = ENABLED if value & 0x01 else DISABLED
+                    setting = ENABLED if bitfield & 0x01 else DISABLED
                     self._current_status[AUTO_BITFIELD_MAP[item]] = handle_cached_value(
                         AUTO_BITFIELD_MAP[item], setting
                     )
-                    value = value >> 1
-                continue
+                    bitfield = bitfield >> 1
             elif map[elem] in DRINK_OFFSET_MAP:
                 if map[elem] == TOTAL_FLUSHING:
                     value = (
@@ -422,14 +422,14 @@ class Connection:
 
             self._current_status[map[elem]] = handle_cached_value(map[elem], value)
 
-    async def _send_msg(self, msg_id, data=None, key=None):
+    async def _send_msg(self, msg_id, data=None, base=None):
         """Send command to the espresso machine."""
         msg = MSGS[msg_id]
 
-        _LOGGER.debug(f"Sending {msg.msg} with {data} {key}")
-        await self._send_raw_msg(msg.msg, msg.msg_type, data, key)
+        _LOGGER.debug(f"Sending {msg.msg} with {data} {base}")
+        await self._send_raw_msg(msg.msg, msg.msg_type, data, base)
 
-    async def _send_raw_msg(self, msg, msg_type, data=None, key=None):
+    async def _send_raw_msg(self, msg, msg_type, data=None, base=None):
         def checksum(buffer):
             """Compute check byte."""
             buffer = bytes(buffer, "utf-8")
@@ -447,7 +447,7 @@ class Connection:
                 raise ConnectionFail(f"self._writer={self._writer}")
 
             """If a key was provided, replace the second byte of the message."""
-            msg_to_send = msg if not key else msg[:2] + key + msg[4:]
+            msg_to_send = msg if not base else msg[:2] + base + msg[4:]
 
             plaintext = msg_type + msg_to_send
 
