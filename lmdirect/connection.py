@@ -340,6 +340,24 @@ class Connection:
 
         return retval
 
+    def calculate_auto_sched_times(self, key):
+        time_on_key = self._get_key((key, ON, TIME))
+        hour_on_key = self._get_key((key, ON, HOUR))
+        min_on_key = self._get_key((key, ON, MIN))
+        time_off_key = self._get_key((key, OFF, TIME))
+        hour_off_key = self._get_key((key, OFF, HOUR))
+        min_off_key = self._get_key((key, OFF, MIN))
+
+        """Set human-readable "on" time"""
+        self._current_status[
+            time_on_key
+        ] = f"{'%02d' % self._current_status[hour_on_key]}:{'%02d' % self._current_status[min_on_key]}"
+
+        """Set human-readable "off" time"""
+        self._current_status[
+            time_off_key
+        ] = f"{'%02d' % self._current_status[hour_off_key]}:{'%02d' % self._current_status[min_off_key]}"
+
     async def _populate_items(self, data, cur_msg):
         def handle_cached_value(element, value):
             """See if we've stored a temporary value that may take a while to update on the machine"""
@@ -443,22 +461,7 @@ class Connection:
                     )  # turn \xff into a solid block (heating element on)
                 )
             elif key in AUTO_SCHED_MAP.values() and elem.index == CALCULATED_VALUE:
-                time_on_key = self._get_key((key, ON, TIME))
-                hour_on_key = self._get_key((key, ON, HOUR))
-                min_on_key = self._get_key((key, ON, MIN))
-                time_off_key = self._get_key((key, OFF, TIME))
-                hour_off_key = self._get_key((key, OFF, HOUR))
-                min_off_key = self._get_key((key, OFF, MIN))
-
-                """Set human-readable "on" time"""
-                self._current_status[
-                    time_on_key
-                ] = f"{'%02d' % self._current_status[hour_on_key]}:{'%02d' % self._current_status[min_on_key]}"
-
-                """Set human-readable "off" time"""
-                self._current_status[
-                    time_off_key
-                ] = f"{'%02d' % self._current_status[hour_off_key]}:{'%02d' % self._current_status[min_off_key]}"
+                self.calculate_auto_sched_times(key)
                 continue
 
             self._current_status[key] = handle_cached_value(key, value)

@@ -282,6 +282,8 @@ class LMDirect(Connection):
             state[self._get_key((day_of_week, OFF, HOUR))] = hour_off
             state[self._get_key((day_of_week, OFF, MIN))] = minute_off
 
+        self.calculate_auto_sched_times(day_of_week)
+
         self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_dose(self, key=None, pulses=None):
@@ -293,11 +295,8 @@ class LMDirect(Connection):
                     f"set_dose: Some parameters not specified {key=} {pulses=}"
                 )
 
-            if isinstance(pulses, str):
-                pulses = int(pulses)
-
-            if isinstance(key, str):
-                key = int(key)
+            isinstance(pulses, str) and (pulses := int(pulses))
+            isinstance(key, str) and (key := int(key))
 
             """Validate input."""
             if not (1 <= pulses <= 1000 and 1 <= key <= 5):
@@ -320,8 +319,7 @@ class LMDirect(Connection):
             if seconds is None:
                 raise InvalidInput("set_dose_hot_water: Seconds not specified")
 
-            if isinstance(seconds, str):
-                seconds = int(seconds)
+            isinstance(seconds, str) and (seconds := int(seconds))
 
             """Validate input."""
             if not (1 <= seconds <= 30):
@@ -346,9 +344,7 @@ class LMDirect(Connection):
                 )
 
             seconds_on, seconds_off = [float(x) for x in [seconds_on, seconds_off]]
-
-            if isinstance(key, str):
-                key = int(key)
+            isinstance(key, str) and (key := int(key))
 
             """Validate input."""
             if not (
@@ -386,9 +382,7 @@ class LMDirect(Connection):
             if temp is None:
                 raise InvalidInput("set_coffee__temp: Temperature not specified")
 
-            if isinstance(temp, str):
-                temp = float(temp)
-
+            isinstance(temp, str) and (temp := float(temp))
             temp = round(temp, 1)
 
             data = self._convert_to_ascii(int(temp * 10), size=2)
@@ -407,9 +401,7 @@ class LMDirect(Connection):
             if temp is None:
                 raise InvalidInput("set_steam_temp: Temperature not specified")
 
-            if isinstance(temp, str):
-                temp = float(temp)
-
+            isinstance(temp, str) and (temp := float(temp))
             temp = round(temp, 1)
 
             data = self._convert_to_ascii(int(temp * 10), size=2)
