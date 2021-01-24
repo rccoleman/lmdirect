@@ -114,8 +114,9 @@ class Connection:
                 machine_info[MACHINE_NAME] = fleet["name"]
                 machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
 
-        """Add the machine name to the dict so that it's avaialble for attributes"""
+        """Add the machine and model names to the dict so that they're avaialble for attributes"""
         self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
+        self._current_status.update({MODEL_NAME: machine_info[MODEL_NAME]})
 
         if any(
             self._get_key(x) not in self._current_status
@@ -253,7 +254,6 @@ class Connection:
 
         while self._run:
             encoded_data = await self._reader.readuntil(separator=b"%")
-            # encoded_data = await self._reader.read(BUFFER_SIZE)
 
             if encoded_data is not None:
                 loop = asyncio.get_event_loop()
@@ -296,7 +296,6 @@ class Connection:
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug(f"Message={msg}, Data={data}")
-        # print(f"{msg[:4]}: {data}")
 
         msg_id = None
 
