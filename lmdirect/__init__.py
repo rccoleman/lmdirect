@@ -21,24 +21,26 @@ from lmdirect.const import (
 
 from .connection import Connection
 from .msgs import (
+    AUTO,
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
-    AUTO_DAYS,
+    DAYS,
+    DOSE,
     DOSE_HOT_WATER,
-    DOSE_K1,
     ENABLE_PREBREWING,
     FIRMWARE_VER,
-    GLOBAL_AUTO,
+    GLOBAL,
+    HOUR,
+    MIN,
     MODEL_GS3_AV,
     MODEL_LM,
-    MON_OFF_HOUR,
-    MON_OFF_MIN,
-    MON_ON_HOUR,
-    MON_ON_MIN,
     MSGS,
+    OFF,
+    ON,
     POWER,
-    PREBREWING_TOFF_K1,
-    PREBREWING_TON_K1,
+    PREBREWING,
+    TOFF,
+    TON,
     TSET_COFFEE,
     TSET_STEAM,
     TYPE_AUTO_ON_OFF,
@@ -126,11 +128,9 @@ class LMDirect(Connection):
             Msg.GET_STATUS,
             Msg.GET_CONFIG,
             Msg.GET_AUTO_SCHED,
-            Msg.GET_DATETIME,
             Msg.GET_DRINK_STATS,
             Msg.GET_USAGE_STATS,
             Msg.GET_FRONT_DISPLAY,
-            Msg.GET_MYSTERY,
         ]
 
         _LOGGER.debug("Requesting status")
@@ -188,7 +188,7 @@ class LMDirect(Connection):
 
         async with self._locks[SET_AUTO_ON_OFF]:
             if None in [day_of_week, enable]:
-                raise InvalidInput(f"Some parameters invalid {day_of_week} {enable}")
+                raise InvalidInput(f"Some parameters invalid {day_of_week=} {enable=}")
 
             """We need the existing register value, so fail if we don't have it yet."""
             if AUTO_BITFIELD not in self._current_status:
@@ -198,12 +198,12 @@ class LMDirect(Connection):
 
             """Extract value for this field."""
             bitfield = self._current_status[AUTO_BITFIELD]
-            bitmask = 0x01 << self._findkey(day_of_week, AUTO_BITFIELD_MAP)
+            bitmask = 0x01 << self._findkey((day_of_week, AUTO), AUTO_BITFIELD_MAP)
             bitfield = bitfield | bitmask if enable else bitfield & ~bitmask
             buf_to_send = self._convert_to_ascii(bitfield, 1)
 
             _LOGGER.debug(
-                f"set_on_off_enable: buf_to_send: {buf_to_send}, msg={MSGS[Msg.SET_AUTO_ENABLE].msg}"
+                f"set_on_off_enable: {buf_to_send=}, {MSGS[Msg.SET_AUTO_ENABLE].msg=}"
             )
             await self._send_msg(Msg.SET_AUTO_ENABLE, data=buf_to_send)
 
@@ -216,7 +216,7 @@ class LMDirect(Connection):
 
     async def set_auto_on_off_global(self, value):
         """Set global auto on/off."""
-        await self.set_auto_on_off(GLOBAL_AUTO, value)
+        await self.set_auto_on_off(GLOBAL, value)
 
     async def set_auto_on_off_times(
         self,
@@ -245,7 +245,7 @@ class LMDirect(Connection):
                 and 0 <= minute_on <= 59
                 and 0 <= hour_off <= 23
                 and 0 <= minute_off <= 59
-                and day_of_week in AUTO_DAYS
+                and day_of_week in DAYS
             ):
                 raise InvalidInput(
                     f"set_auto_on_off_times: Invalid values {day_of_week=} {hour_on=} {minute_on=} {hour_off=} {minute_off=}"
@@ -256,7 +256,7 @@ class LMDirect(Connection):
                 hour_off, size=1
             )
             address_base = self._convert_to_ascii(
-                Msg.AUTO_ON_OFF_HOUR_BASE + (AUTO_DAYS.index(day_of_week) * 2), size=1
+                Msg.AUTO_ON_OFF_HOUR_BASE + (DAYS.index(day_of_week) * 2), size=1
             )
             _LOGGER.debug(
                 f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
@@ -268,7 +268,7 @@ class LMDirect(Connection):
                 minute_off, size=1
             )
             address_base = self._convert_to_ascii(
-                Msg.AUTO_ON_OFF_MIN_BASE + (AUTO_DAYS.index(day_of_week) * 2), size=1
+                Msg.AUTO_ON_OFF_MIN_BASE + (DAYS.index(day_of_week) * 2), size=1
             )
             _LOGGER.debug(
                 f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
@@ -277,10 +277,10 @@ class LMDirect(Connection):
 
         """Update the stored values to immediately reflect the change"""
         for state in [self._temp_state, self._current_status]:
-            state[day_of_week + MON_ON_HOUR[3:]] = hour_on
-            state[day_of_week + MON_ON_MIN[3:]] = minute_on
-            state[day_of_week + MON_OFF_HOUR[3:]] = hour_off
-            state[day_of_week + MON_OFF_MIN[3:]] = minute_off
+            state[self._get_key((day_of_week, ON, HOUR))] = hour_on
+            state[self._get_key((day_of_week, ON, MIN))] = minute_on
+            state[self._get_key((day_of_week, OFF, HOUR))] = hour_off
+            state[self._get_key((day_of_week, OFF, MIN))] = minute_off
 
         self._call_callbacks(entity_type=TYPE_MAIN)
 
@@ -290,7 +290,7 @@ class LMDirect(Connection):
         async with self._locks[SET_DOSE]:
             if None in [key, pulses]:
                 raise InvalidInput(
-                    f"set_dose: Some parameters not specified {key} {pulses}"
+                    f"set_dose: Some parameters not specified {key=} {pulses=}"
                 )
 
             if isinstance(pulses, str):
@@ -301,9 +301,7 @@ class LMDirect(Connection):
 
             """Validate input."""
             if not (1 <= pulses <= 1000 and 1 <= key <= 5):
-                raise InvalidInput(
-                    f"set_dose: Invalid values pulses:{pulses} key:{key}"
-                )
+                raise InvalidInput(f"set_dose: Invalid values {pulses=} {key=}")
 
             data = self._convert_to_ascii(pulses, size=2)
             key = self._convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
@@ -311,14 +309,14 @@ class LMDirect(Connection):
 
             """Update the stored values to immediately reflect the change"""
             for state in [self._temp_state, self._current_status]:
-                state[DOSE_K1.replace("1", str(key))] = pulses
+                state[self._get_key((DOSE, f"k{key}"))] = pulses
 
             self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_dose_hot_water(self, seconds=None):
         """Set the hot water dose in seconds."""
 
-        async with self._locks(SET_DOSE_HOT_WATER):
+        async with self._locks[SET_DOSE_HOT_WATER]:
             if seconds is None:
                 raise InvalidInput("set_dose_hot_water: Seconds not specified")
 
@@ -327,7 +325,7 @@ class LMDirect(Connection):
 
             """Validate input."""
             if not (1 <= seconds <= 30):
-                raise InvalidInput(f"Invalid values seconds:{seconds}")
+                raise InvalidInput(f"Invalid values {seconds=}")
 
             data = self._convert_to_ascii(seconds, size=1)
             await self._send_msg(Msg.SET_DOSE_HOT_WATER, data=data)
@@ -362,7 +360,7 @@ class LMDirect(Connection):
                 (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
                 or (self.model_name == MODEL_LM and key == 1)
             ):
-                raise InvalidInput(f"Invalid values key:{key}")
+                raise InvalidInput(f"Invalid values {key=}")
 
             """Set "on" time."""
             key_on = self._convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
@@ -376,11 +374,8 @@ class LMDirect(Connection):
 
             """Update the stored values to immediately reflect the change"""
             for state in [self._temp_state, self._current_status]:
-                state[PREBREWING_TON_K1.replace("1", str(key))] = seconds_on
-                state[PREBREWING_TOFF_K1.replace("1", str(key))] = seconds_off
-                _LOGGER.debug(
-                    f"{PREBREWING_TON_K1.replace('1', str(key))=}, {seconds_on=}, {seconds_off=}"
-                )
+                state[self._get_key((PREBREWING, TON, f"k{key}"))] = seconds_on
+                state[self._get_key((PREBREWING, TOFF, f"k{key}"))] = seconds_off
 
             self._call_callbacks(entity_type=TYPE_PREBREW)
 

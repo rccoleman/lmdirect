@@ -12,6 +12,7 @@ from .const import *
 from .msgs import (
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
+    AUTO_SCHED_MAP,
     CURRENT_PULSE_COUNT,
     DAYS_SINCE_BUILT,
     DIVIDE_KEYS,
@@ -21,9 +22,14 @@ from .msgs import (
     GATEWAY_DRINK_MAP,
     HEATING_STATE,
     HEATING_VALUES,
+    HOUR,
     KEY_ACTIVE,
+    MIN,
     MSGS,
+    OFF,
+    ON,
     SERIAL_NUMBERS,
+    TIME,
     TOTAL_COFFEE,
     TOTAL_COFFEE_ACTIVATIONS,
     TOTAL_FLUSHING,
@@ -58,6 +64,12 @@ class Connection:
 
         """Maintain temporary states for device states that take a while to update"""
         self._temp_state = {}
+
+    def _get_key(self, k):
+        """Construct tag name if needed."""
+        if isinstance(k, tuple):
+            k = "_".join(k)
+        return k
 
     async def retrieve_machine_info(self, machine_info):
         """Retrieve the machine info from the cloud APIs."""
@@ -105,14 +117,20 @@ class Connection:
         """Add the machine name to the dict so that it's avaialble for attributes"""
         self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
 
-        if any(x not in self._current_status for x in DRINK_OFFSET_MAP.values()):
+        if any(
+            self._get_key(x) not in self._current_status
+            for x in DRINK_OFFSET_MAP.values()
+        ):
             drink_info = await client.get(
                 DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
             )
             if drink_info:
                 data = drink_info.json()["data"]
                 self._current_status.update(
-                    {GATEWAY_DRINK_MAP[x["coffeeType"]]: x["count"] for x in data}
+                    {
+                        self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
+                        for x in data
+                    }
                 )
 
         if UPDATE_AVAILABLE not in self._current_status:
@@ -360,54 +378,60 @@ class Connection:
                     """Convert from ascii-encoded hex."""
                     value = int(value, 16)
 
-            if any(x in map[elem] for x in DIVIDE_KEYS):
+            raw_key = map[elem]
+
+            """Construct key name if needed."""
+            key = self._get_key(raw_key)
+
+            if any(x in key for x in DIVIDE_KEYS):
                 value = value / 10
-            elif map[elem] == FIRMWARE_VER:
+            elif key == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
-            elif map[elem] in SERIAL_NUMBERS:
+            elif key in SERIAL_NUMBERS:
                 value = "".join(
                     [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
                 )
                 """Chop off any trailing nulls."""
                 value = value.partition("\0")[0]
 
-            elif map[elem] == AUTO_BITFIELD:
+            elif key == AUTO_BITFIELD:
                 bitfield = value
                 for item in AUTO_BITFIELD_MAP:
                     setting = ENABLED if bitfield & 0x01 else DISABLED
-                    self._current_status[AUTO_BITFIELD_MAP[item]] = handle_cached_value(
-                        AUTO_BITFIELD_MAP[item], setting
+                    processed_key = self._get_key(AUTO_BITFIELD_MAP[item])
+                    self._current_status[processed_key] = handle_cached_value(
+                        processed_key, setting
                     )
                     bitfield = bitfield >> 1
-            elif map[elem] in DRINK_OFFSET_MAP:
-                if map[elem] == TOTAL_FLUSHING:
+            elif raw_key in DRINK_OFFSET_MAP:
+                if key == TOTAL_FLUSHING:
                     value = (
                         self._current_status[TOTAL_COFFEE_ACTIVATIONS]
                         - self._current_status[TOTAL_COFFEE]
                     )
-                offset_key = DRINK_OFFSET_MAP[map[elem]]
-                if map[elem] not in self._current_status:
+                offset_key = self._get_key(DRINK_OFFSET_MAP[raw_key])
+                if key not in self._current_status:
                     """If we haven't seen the value before, calculate the offset."""
                     self._current_status.update(
                         {offset_key: value - self._current_status[offset_key]}
                     )
                 """Apply the offset to the value."""
                 value = value - self._current_status[offset_key]
-            elif map[elem] == DAYS_SINCE_BUILT:
+            elif key == DAYS_SINCE_BUILT:
                 """Convert hours to days."""
                 value = round(value / 24)
-            elif map[elem] == HEATING_STATE:
+            elif key == HEATING_STATE:
                 value = [x for x in HEATING_VALUES if HEATING_VALUES[x] & value]
                 """Don't add attribute and remove it if machine isn't currently running."""
                 if not value:
-                    self._current_status.pop(map[elem], None)
+                    self._current_status.pop(key, None)
                     continue
-            elif map[elem] in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
+            elif key in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
                 """Don't add attributes and remove them if machine isn't currently running."""
                 if not value:
-                    self._current_status.pop(map[elem], None)
+                    self._current_status.pop(key, None)
                     continue
-            elif map[elem] == FRONT_PANEL_DISPLAY:
+            elif key == FRONT_PANEL_DISPLAY:
                 value = (
                     bytes.fromhex(value)
                     .decode("latin-1")
@@ -419,8 +443,26 @@ class Connection:
                         "\xff", "\u25A0"
                     )  # turn \xff into a solid block (heating element on)
                 )
+            elif key in AUTO_SCHED_MAP.values() and elem.index == CALCULATED_VALUE:
+                time_on_key = self._get_key((key, ON, TIME))
+                hour_on_key = self._get_key((key, ON, HOUR))
+                min_on_key = self._get_key((key, ON, MIN))
+                time_off_key = self._get_key((key, OFF, TIME))
+                hour_off_key = self._get_key((key, OFF, HOUR))
+                min_off_key = self._get_key((key, OFF, MIN))
 
-            self._current_status[map[elem]] = handle_cached_value(map[elem], value)
+                """Set human-readable "on" time"""
+                self._current_status[
+                    time_on_key
+                ] = f"{'%02d' % self._current_status[hour_on_key]}:{'%02d' % self._current_status[min_on_key]}"
+
+                """Set human-readable "off" time"""
+                self._current_status[
+                    time_off_key
+                ] = f"{'%02d' % self._current_status[hour_off_key]}:{'%02d' % self._current_status[min_off_key]}"
+                continue
+
+            self._current_status[key] = handle_cached_value(key, value)
 
     async def _send_msg(self, msg_id, data=None, base=None):
         """Send command to the espresso machine."""

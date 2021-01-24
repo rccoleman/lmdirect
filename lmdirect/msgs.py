@@ -10,39 +10,33 @@ MODEL_LM = "Linea Mini"
 from lmdirect.const import (
     CALCULATED_VALUE,
     CONTINUOUS_OFFSET,
-    DRINKS_K1_OFFSET,
-    DRINKS_K2_OFFSET,
-    DRINKS_K3_OFFSET,
-    DRINKS_K4_OFFSET,
     FLUSHING_OFFSET,
 )
+
+OFFSET = "offset"
 
 DATE_RECEIVED = "date_received"
 POWER = "power"
 POWER_MYSTERY = "power_mystery"
 TEMP_COFFEE = "coffee_temp"
 TEMP_STEAM = "steam_temp"
-TSET_STEAM = "steam_set_temp"
 TSET_COFFEE = "coffee_set_temp"
-DOSE_K1 = "dose_k1"
-DOSE_K2 = "dose_k2"
-DOSE_K3 = "dose_k3"
-DOSE_K4 = "dose_k4"
-DOSE_K5 = "dose_k5"
+TSET_STEAM = "steam_set_temp"
+
+TEMP_KEYS = [TEMP_COFFEE, TEMP_STEAM, TSET_COFFEE, TSET_STEAM]
+TSET_KEYS = [TSET_COFFEE, TSET_STEAM]
+
+DOSE = "dose"
+
 DOSE_HOT_WATER = "dose_hot_water"
 ENABLE_PREBREWING = "enable_prebrewing"
-PREBREWING_TON_K1 = "prebrewing_ton_k1"
-PREBREWING_TON_K2 = "prebrewing_ton_k2"
-PREBREWING_TON_K3 = "prebrewing_ton_k3"
-PREBREWING_TON_K4 = "prebrewing_ton_k4"
-PREBREWING_TOFF_K1 = "prebrewing_toff_k1"
-PREBREWING_TOFF_K2 = "prebrewing_toff_k2"
-PREBREWING_TOFF_K3 = "prebrewing_toff_k3"
-PREBREWING_TOFF_K4 = "prebrewing_toff_k4"
-DRINKS_K1 = "drinks_k1"
-DRINKS_K2 = "drinks_k2"
-DRINKS_K3 = "drinks_k3"
-DRINKS_K4 = "drinks_k4"
+
+PREBREWING = "prebrewing"
+TON = "ton"
+TOFF = "toff"
+
+DRINKS = "drinks"
+
 CONTINUOUS = "continuous"
 TOTAL_COFFEE = "total_coffee"
 HOT_WATER = "hot_water"
@@ -54,24 +48,8 @@ TOTAL_FLUSHING = "total_flushing"
 MACHINE_NAME = "machine_name"
 FRONT_PANEL_DISPLAY = "front_panel_display"
 MYSTERY_VALUES = "mystery_values"
-VAL_1 = "val_1"
-VAL_2 = "val_2"
-VAL_3 = "val_3"
-VAL_4 = "val_4"
-VAL_5 = "val_5"
-VAL_6 = "val_6"
-VAL_7 = "val_7"
-VAL_8 = "val_8"
-VAL_9 = "val_9"
-VAL_10 = "val_10"
-VAL_11 = "val_11"
-VAL_12 = "val_12"
-VAL_13 = "val_13"
-VAL_14 = "val_14"
-VAL_15 = "val_15"
-VAL_16 = "val_16"
-VAL_17 = "val_17"
-VAL_18 = "val_18"
+
+VAL = "val"
 
 HEATING_STATE = "heating_state"
 STEAM_HEATER_ON = "steam_heater_on"
@@ -97,48 +75,25 @@ MODULE_SER_NUM = "module_ser_num"
 
 UPDATE_AVAILABLE = "update_available"
 
-SUN_ON_HOUR = "sun_on_hour"
-SUN_OFF_HOUR = "sun_off_hour"
-MON_ON_HOUR = "mon_on_hour"
-MON_OFF_HOUR = "mon_off_hour"
-TUE_ON_HOUR = "tue_on_hour"
-TUE_OFF_HOUR = "tue_off_hour"
-WED_ON_HOUR = "wed_on_hour"
-WED_OFF_HOUR = "wed_off_hour"
-THU_ON_HOUR = "thu_on_hour"
-THU_OFF_HOUR = "thu_off_hour"
-FRI_ON_HOUR = "fri_on_hour"
-FRI_OFF_HOUR = "fri_off_hour"
-SAT_ON_HOUR = "sat_on_hour"
-SAT_OFF_HOUR = "sat_off_hour"
-SUN_ON_HOUR = "sun_on_hour"
-SUN_OFF_HOUR = "sun_off_hour"
-MON_ON_MIN = "mon_on_min"
-MON_OFF_MIN = "mon_off_min"
-TUE_ON_MIN = "tue_on_min"
-TUE_OFF_MIN = "tue_off_min"
-WED_ON_MIN = "wed_on_min"
-WED_OFF_MIN = "wed_off_min"
-THU_ON_MIN = "thu_on_min"
-THU_OFF_MIN = "thu_off_min"
-FRI_ON_MIN = "fri_on_min"
-FRI_OFF_MIN = "fri_off_min"
-SAT_ON_MIN = "sat_on_min"
-SAT_OFF_MIN = "sat_off_min"
-SUN_ON_MIN = "sun_on_min"
-SUN_OFF_MIN = "sun_off_min"
+ON = "on"
+OFF = "off"
+HOUR = "hour"
+MIN = "min"
+AUTO = "auto"
+TIME = "time"
+
+GLOBAL = "global"
+MON = "mon"
+TUE = "tue"
+WED = "wed"
+THU = "thu"
+FRI = "fri"
+SAT = "sat"
+SUN = "sun"
+
+DAYS = [MON, TUE, WED, THU, FRI, SAT, SUN]
 
 AUTO_BITFIELD = "auto_bitfield"
-GLOBAL_AUTO = "global_auto"
-SUN_AUTO = "sun"
-MON_AUTO = "mon"
-TUE_AUTO = "tue"
-WED_AUTO = "wed"
-THU_AUTO = "thu"
-FRI_AUTO = "fri"
-SAT_AUTO = "sat"
-
-AUTO_DAYS = [MON_AUTO, TUE_AUTO, WED_AUTO, THU_AUTO, FRI_AUTO, SAT_AUTO, SUN_AUTO]
 
 SECOND = "second"
 MINUTE = "minute"
@@ -262,19 +217,19 @@ CONFIG_MAP = {
     Elem(7, 2): TSET_COFFEE,
     Elem(9, 2): TSET_STEAM,
     Elem(11): ENABLE_PREBREWING,
-    Elem(12): PREBREWING_TON_K1,
-    Elem(13): PREBREWING_TON_K2,
-    Elem(14): PREBREWING_TON_K3,
-    Elem(15): PREBREWING_TON_K4,
-    Elem(16): PREBREWING_TOFF_K1,
-    Elem(17): PREBREWING_TOFF_K2,
-    Elem(18): PREBREWING_TOFF_K3,
-    Elem(19): PREBREWING_TOFF_K4,
-    Elem(20, 2): DOSE_K1,
-    Elem(22, 2): DOSE_K2,
-    Elem(24, 2): DOSE_K3,
-    Elem(26, 2): DOSE_K4,
-    Elem(28, 2): DOSE_K5,
+    Elem(12): (PREBREWING, TON, "k1"),
+    Elem(13): (PREBREWING, TON, "k2"),
+    Elem(14): (PREBREWING, TON, "k3"),
+    Elem(15): (PREBREWING, TON, "k4"),
+    Elem(16): (PREBREWING, TOFF, "k1"),
+    Elem(17): (PREBREWING, TOFF, "k2"),
+    Elem(18): (PREBREWING, TOFF, "k3"),
+    Elem(19): (PREBREWING, TOFF, "k4"),
+    Elem(20, 2): (DOSE, "k1"),
+    Elem(22, 2): (DOSE, "k2"),
+    Elem(24, 2): (DOSE, "k3"),
+    Elem(26, 2): (DOSE, "k4"),
+    Elem(28, 2): (DOSE, "k5"),
     Elem(30): DOSE_HOT_WATER,
 }
 
@@ -302,34 +257,41 @@ CONFIG_MAP = {
 
 AUTO_SCHED_MAP = {
     Elem(0): AUTO_BITFIELD,
-    Elem(1): MON_ON_HOUR,
-    Elem(2): MON_OFF_HOUR,
-    Elem(3): TUE_ON_HOUR,
-    Elem(4): TUE_OFF_HOUR,
-    Elem(5): WED_ON_HOUR,
-    Elem(6): WED_OFF_HOUR,
-    Elem(7): THU_ON_HOUR,
-    Elem(8): THU_OFF_HOUR,
-    Elem(9): FRI_ON_HOUR,
-    Elem(10): FRI_OFF_HOUR,
-    Elem(11): SAT_ON_HOUR,
-    Elem(12): SAT_OFF_HOUR,
-    Elem(13): SUN_ON_HOUR,
-    Elem(14): SUN_OFF_HOUR,
-    Elem(15): MON_ON_MIN,
-    Elem(16): MON_OFF_MIN,
-    Elem(17): TUE_ON_MIN,
-    Elem(18): TUE_OFF_MIN,
-    Elem(19): WED_ON_MIN,
-    Elem(20): WED_OFF_MIN,
-    Elem(21): THU_ON_MIN,
-    Elem(22): THU_OFF_MIN,
-    Elem(23): FRI_ON_MIN,
-    Elem(24): FRI_OFF_MIN,
-    Elem(25): SAT_ON_MIN,
-    Elem(26): SAT_OFF_MIN,
-    Elem(27): SUN_ON_MIN,
-    Elem(28): SUN_OFF_MIN,
+    Elem(1): (MON, ON, HOUR),
+    Elem(2): (MON, OFF, HOUR),
+    Elem(3): (TUE, ON, HOUR),
+    Elem(4): (TUE, OFF, HOUR),
+    Elem(5): (WED, ON, HOUR),
+    Elem(6): (WED, OFF, HOUR),
+    Elem(7): (THU, ON, HOUR),
+    Elem(8): (THU, OFF, HOUR),
+    Elem(9): (FRI, ON, HOUR),
+    Elem(10): (FRI, OFF, HOUR),
+    Elem(11): (SAT, ON, HOUR),
+    Elem(12): (SAT, OFF, HOUR),
+    Elem(13): (SUN, ON, HOUR),
+    Elem(14): (SUN, OFF, HOUR),
+    Elem(15): (MON, ON, MIN),
+    Elem(16): (MON, OFF, MIN),
+    Elem(17): (TUE, ON, MIN),
+    Elem(18): (TUE, OFF, MIN),
+    Elem(19): (WED, ON, MIN),
+    Elem(20): (WED, OFF, MIN),
+    Elem(21): (THU, ON, MIN),
+    Elem(22): (THU, OFF, MIN),
+    Elem(23): (FRI, ON, MIN),
+    Elem(24): (FRI, OFF, MIN),
+    Elem(25): (SAT, ON, MIN),
+    Elem(26): (SAT, OFF, MIN),
+    Elem(27): (SUN, ON, MIN),
+    Elem(28): (SUN, OFF, MIN),
+    Elem(CALCULATED_VALUE): MON,
+    Elem(CALCULATED_VALUE): TUE,
+    Elem(CALCULATED_VALUE): WED,
+    Elem(CALCULATED_VALUE): THU,
+    Elem(CALCULATED_VALUE): FRI,
+    Elem(CALCULATED_VALUE): SAT,
+    Elem(CALCULATED_VALUE): SUN,
 }
 
 AUTO_ENABLE_MAP = {
@@ -337,14 +299,14 @@ AUTO_ENABLE_MAP = {
 }
 
 AUTO_BITFIELD_MAP = {
-    0: GLOBAL_AUTO,
-    1: MON_AUTO,
-    2: TUE_AUTO,
-    3: WED_AUTO,
-    4: THU_AUTO,
-    5: FRI_AUTO,
-    6: SAT_AUTO,
-    7: SUN_AUTO,
+    0: (GLOBAL, AUTO),
+    1: (MON, AUTO),
+    2: (TUE, AUTO),
+    3: (WED, AUTO),
+    4: (THU, AUTO),
+    5: (FRI, AUTO),
+    6: (SAT, AUTO),
+    7: (SUN, AUTO),
 }
 
 # W: Write
@@ -404,10 +366,10 @@ DATETIME_MAP = {
 # 00000032: Completed Hot Water
 
 DRINK_STATS_MAP = {
-    Elem(0, 4): DRINKS_K1,
-    Elem(4, 4): DRINKS_K2,
-    Elem(8, 4): DRINKS_K3,
-    Elem(12, 4): DRINKS_K4,
+    Elem(0, 4): (DRINKS, "k1"),
+    Elem(4, 4): (DRINKS, "k2"),
+    Elem(8, 4): (DRINKS, "k3"),
+    Elem(12, 4): (DRINKS, "k4"),
     Elem(16, 4): CONTINUOUS,
     Elem(20, 4): TOTAL_COFFEE,
     Elem(24, 4): HOT_WATER,
@@ -420,19 +382,19 @@ DRINK_STATS_MAP = {
 
 GATEWAY_DRINK_MAP = {
     -1: FLUSHING_OFFSET,
-    0: DRINKS_K1_OFFSET,
-    1: DRINKS_K2_OFFSET,
-    2: DRINKS_K3_OFFSET,
-    3: DRINKS_K4_OFFSET,
+    0: (DRINKS, "k1", OFFSET),
+    1: (DRINKS, "k2", OFFSET),
+    2: (DRINKS, "k3", OFFSET),
+    3: (DRINKS, "k4", OFFSET),
     4: CONTINUOUS_OFFSET,
 }
 
 DRINK_OFFSET_MAP = {
     TOTAL_FLUSHING: FLUSHING_OFFSET,
-    DRINKS_K1: DRINKS_K1_OFFSET,
-    DRINKS_K2: DRINKS_K2_OFFSET,
-    DRINKS_K3: DRINKS_K3_OFFSET,
-    DRINKS_K4: DRINKS_K4_OFFSET,
+    (DRINKS, "k1"): (DRINKS, "k1", OFFSET),
+    (DRINKS, "k2"): (DRINKS, "k2", OFFSET),
+    (DRINKS, "k3"): (DRINKS, "k3", OFFSET),
+    (DRINKS, "k4"): (DRINKS, "k1", OFFSET),
     CONTINUOUS: CONTINUOUS_OFFSET,
 }
 
@@ -506,24 +468,24 @@ FRONT_DISPLAY_MAP = {
 # F5
 
 MYSTERY_MAP = {
-    Elem(0): VAL_1,
-    Elem(1): VAL_2,
-    Elem(2): VAL_3,
-    Elem(3): VAL_4,
-    Elem(4): VAL_5,
-    Elem(5): VAL_6,
-    Elem(6): VAL_7,
-    Elem(7): VAL_8,
-    Elem(8): VAL_9,
-    Elem(9): VAL_10,
-    Elem(10): VAL_11,
-    Elem(11): VAL_12,
-    Elem(12): VAL_13,
-    Elem(13): VAL_14,
-    Elem(14): VAL_15,
-    Elem(15): VAL_16,
-    Elem(16): VAL_17,
-    Elem(17): VAL_18,
+    Elem(0): (VAL, 1),
+    Elem(1): (VAL, 2),
+    Elem(2): (VAL, 3),
+    Elem(3): (VAL, 4),
+    Elem(4): (VAL, 5),
+    Elem(5): (VAL, 6),
+    Elem(6): (VAL, 7),
+    Elem(7): (VAL, 8),
+    Elem(8): (VAL, 9),
+    Elem(9): (VAL, 10),
+    Elem(10): (VAL, 11),
+    Elem(11): (VAL, 12),
+    Elem(12): (VAL, 13),
+    Elem(13): (VAL, 14),
+    Elem(14): (VAL, 15),
+    Elem(15): (VAL, 16),
+    Elem(16): (VAL, 17),
+    Elem(17): (VAL, 18),
 }
 
 
