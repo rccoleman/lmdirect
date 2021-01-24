@@ -394,7 +394,7 @@ DRINK_OFFSET_MAP = {
     (DRINKS, "k1"): (DRINKS, "k1", OFFSET),
     (DRINKS, "k2"): (DRINKS, "k2", OFFSET),
     (DRINKS, "k3"): (DRINKS, "k3", OFFSET),
-    (DRINKS, "k4"): (DRINKS, "k1", OFFSET),
+    (DRINKS, "k4"): (DRINKS, "k4", OFFSET),
     CONTINUOUS: CONTINUOUS_OFFSET,
 }
 
