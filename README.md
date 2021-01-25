@@ -38,17 +38,8 @@ The machine can only accept a single connection at a time, but the library keeps
 
 ### Notes
 
-So far, these are the commands that I’ve found:
+The raw API is comprised of "read" messages that start with "R", "write" messages that start with "W", and "streaming" messages that start with "Z".  Following the initial letter, all messages have a 16-bit address and 16-bit length followed by data to write or that was read.  In essence, the API is just a peek/poke API into the memory space of the machine, and the machine updates the contents when changes are made on the machine and reacts to writes that occur.
 
--   A command that I call `D8` that appears to request the same info that you get from the “status” cloud endpoint. This is a read starting with “R”, and has a preamble of `40000020`.
--   A command that I call `E9` that appears to request the same info that you get from the “configuration” cloud endpoint. This is a read starting with “R”, and has a preamble of `0000001F`
--   A command that I call `EB` that requests the auto on/off schedule. This is a read starting with “R”, and has a preamble of `0310001D`
--   A command that writes a value, and it starts with “W” and has a preamble of `00000001`. I’ve only used this to turn the machine on and off so far, so there may be other preambles.
+The entire message is sent in ASCII-encoded hex, encrypted, base-64 encoded, and framed between "@" and "%" characters.
 
-The responses have a matching “R” or “W” and mostly-matching preamble based on the command and these are the types that I’ve found and decoded (more or less):
-
--   A periodic short status broadcast that gives the current brew/steam boiler temps. I don’t need to send a command to get this - it may just be sent to whoever has an active socket connection. Preamble is `401C0004`
--   A response to the `D8` command with status info
--   A response to the `E9` command with config info
--   A response to the `EB` command with the auto on/off schedule and what’s enabled
--   A “confirmation” response to a “write” command from the app (message to the machine starting with “W”). This includes the string “OK” if it succeeded.
+You can find an extensive set of interesting memory regions and their maps in `msgs.py` here: https://github.com/rccoleman/lmdirect/tree/master/lmdirect.
