@@ -36,6 +36,10 @@ The app requests all status & config information every 20 seconds, so you should
 
 The machine can only accept a single connection at a time, but the library keeps the connection open long enough only to send commands and receive the responses. Both the mobile app and this library will attempt to reconnect if the port is in use, but you may need to wait a bit while using the mobile app for it to try again.
 
+### API
+
+The package's external API can be found in `__init__.py`.  `request_status()` will automatically connect to the machine, retrieve lots of status and configuration information, and build a dict that can be retrieved by calling the `current_status()` API.  Several properties are available for direct access and there's a set of services that allow the user to change machine settings.  Users can register for a callback when new data is received.
+
 ### Notes
 
 The raw API is comprised of "read" messages that start with "R", "write" messages that start with "W", and "streaming" messages that start with "Z".  Following the initial letter, all messages have a 16-bit address and 16-bit length followed by data to write or that was read.  In essence, the API is just a peek/poke API into the memory space of the machine, and the machine updates the contents when changes are made on the machine and reacts to writes that occur.
