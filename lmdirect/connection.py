@@ -1,4 +1,4 @@
-"""lmdirect connection class"""
+"""lmdirect connection class."""
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -12,12 +12,27 @@ from .const import *
 from .msgs import (
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
+    AUTO_SCHED_MAP,
+    CURRENT_PULSE_COUNT,
+    DAYS_SINCE_BUILT,
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
     FIRMWARE_VER,
+    FRONT_PANEL_DISPLAY,
     GATEWAY_DRINK_MAP,
+    HEATING_STATE,
+    HEATING_VALUES,
+    HOUR,
+    KEY_ACTIVE,
+    MIN,
     MSGS,
+    OFF,
+    ON,
     SERIAL_NUMBERS,
+    TIME,
+    TOTAL_COFFEE,
+    TOTAL_COFFEE_ACTIVATIONS,
+    TOTAL_FLUSHING,
     UPDATE_AVAILABLE,
     Elem,
     Msg,
@@ -28,7 +43,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Connection:
     def __init__(self, machine_info):
-        """Init LMDirect"""
+        """Init LMDirect."""
         self._reader = None
         self._writer = None
         self._read_response_task = None
@@ -45,9 +60,19 @@ class Connection:
         self._lock = asyncio.Lock()
         self._first_time = True
         self._update_available = None
+        self._initialized_machine_info = False
+
+        """Maintain temporary states for device states that take a while to update"""
+        self._temp_state = {}
+
+    def _get_key(self, k):
+        """Construct tag name if needed."""
+        if isinstance(k, tuple):
+            k = "_".join(k)
+        return k
 
     async def retrieve_machine_info(self, machine_info):
-        """Machine data inialization"""
+        """Retrieve the machine info from the cloud APIs."""
         _LOGGER.debug(f"Retrieving machine info")
 
         client = AsyncOAuth2Client(
@@ -68,15 +93,15 @@ class Connection:
                 password=machine_info[PASSWORD],
                 headers=headers,
             )
-        except OAuthError:
+        except OAuthError as err:
             await client.aclose()
-            raise AuthFail("Authorization failure")
+            raise AuthFail("Authorization failure") from err
 
         except Exception as err:
             await self.close()
-            raise AuthFail(f"Caught: {type(err)}, {err}")
+            raise AuthFail(f"Caught: {type(err)}, {err}") from err
 
-        """Only retrieve this the first time"""
+        """Only retrieve info if we're missing something."""
         if any(
             x not in machine_info
             for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
@@ -89,14 +114,24 @@ class Connection:
                 machine_info[MACHINE_NAME] = fleet["name"]
                 machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
 
-        if any(x not in self._current_status for x in DRINK_OFFSET_MAP.values()):
+        """Add the machine and model names to the dict so that they're avaialble for attributes"""
+        self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
+        self._current_status.update({MODEL_NAME: machine_info[MODEL_NAME]})
+
+        if any(
+            self._get_key(x) not in self._current_status
+            for x in DRINK_OFFSET_MAP.values()
+        ):
             drink_info = await client.get(
                 DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
             )
             if drink_info:
                 data = drink_info.json()["data"]
                 self._current_status.update(
-                    {GATEWAY_DRINK_MAP[x["coffeeType"]]: x["count"] for x in data}
+                    {
+                        self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
+                        for x in data
+                    }
                 )
 
         if UPDATE_AVAILABLE not in self._current_status:
@@ -105,28 +140,35 @@ class Connection:
                 data = update_info.json()["data"]
                 self._update_available = "Yes" if data else "No"
 
-        """Done with the cloud API"""
+        """Done with the cloud API, close."""
         await client.aclose()
+
+        self._initialized_machine_info = True
 
         _LOGGER.debug(f"Finished machine info")
         return machine_info
 
     async def _connect(self):
-        """Conmnect to espresso machine"""
+        """Conmnect to espresso machine."""
         if self._connected:
             return self._machine_info
 
         _LOGGER.debug(f"Connecting")
 
-        try:
-            self._machine_info = await self.retrieve_machine_info(self._machine_info)
-        except Exception as err:
-            raise ConnectionFail(f"Exception retrieving machine info: {err}")
+        if not self._initialized_machine_info:
+            try:
+                self._machine_info = await self.retrieve_machine_info(
+                    self._machine_info
+                )
+            except Exception as err:
+                raise ConnectionFail(
+                    f"Exception retrieving machine info: {err}"
+                ) from err
 
         if not self._cipher:
             self._cipher = AESCipher(self._machine_info[KEY])
 
-        """Connect to the machine"""
+        """Connect to the machine."""
         try:
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(
@@ -139,9 +181,9 @@ class Connection:
             return None
 
         except Exception as err:
-            raise ConnectionFail(f"Cannot connect to machine: {err}")
+            raise ConnectionFail(f"Cannot connect to machine: {err}") from err
 
-        """Start listening for responses & sending status requests"""
+        """Start listening for responses."""
         await self.start_read_task()
 
         self._connected = True
@@ -150,7 +192,7 @@ class Connection:
         return self._machine_info
 
     async def start_read_task(self):
-        """Start listening for responses & sending status requests"""
+        """Start listening for responses."""
         loop = asyncio.get_event_loop()
         self._read_response_task = loop.create_task(
             self.read_response_task(), name="Response Task"
@@ -162,7 +204,7 @@ class Connection:
         )
 
     async def _close(self):
-        """Close the connection"""
+        """Close the connection to the machine."""
         if not self._connected:
             return
 
@@ -190,7 +232,7 @@ class Connection:
         _LOGGER.debug("Finished reaping read task")
 
     def _call_callbacks(self, **kwargs):
-        """Call the callbacks"""
+        """Call the callbacks."""
         if self._callback_list is not None:
             [
                 elem(
@@ -201,7 +243,7 @@ class Connection:
             ]
 
     async def read_response_task(self):
-        """Start thread to receive responses"""
+        """Start thread to receive responses."""
         BUFFER_SIZE = 1000
         handle = None
 
@@ -211,7 +253,8 @@ class Connection:
             self._start_time = datetime.now()
 
         while self._run:
-            encoded_data = await self._reader.read(BUFFER_SIZE)
+            encoded_data = await self._reader.readuntil(separator=b"%")
+
             if encoded_data is not None:
                 loop = asyncio.get_event_loop()
                 fn = partial(self._cipher.decrypt, encoded_data[1:-1])
@@ -226,40 +269,44 @@ class Connection:
                         handle.cancel()
                         handle = None
 
-                    """Throttle callbacks"""
+                    """Coalesce callbacks within a 5s window."""
                     handle = loop.call_later(5, self._call_callbacks)
                 else:
                     self._call_callbacks()
 
-                """Exit if we've been reading longer than 5s"""
-                if datetime.now() > self._start_time + timedelta(seconds=5):
+                """Exit if we've been reading longer than 10s since the last command."""
+                if datetime.now() > self._start_time + timedelta(seconds=10):
                     _LOGGER.debug(f"Exiting loop: {self._responses_waiting}")
 
-                    """Flush the wait list"""
+                    """Flush the wait list."""
                     self._responses_waiting = []
                     break
 
     async def process_data(self, plaintext):
-        """Process incoming packet"""
+        """Process incoming packet."""
 
-        """Separate the mesg from the data"""
+        """Separate the mesg from the data."""
         msg_type = plaintext[0]
         raw_data = plaintext[1:]
         msg = raw_data[:8]
+        retval = True
 
-        """chop off the message and check byte"""
+        """Chop off the message and check byte."""
         data = raw_data[8:-2]
         finished = not len(self._responses_waiting)
 
         _LOGGER.debug(f"Message={msg}, Data={data}")
 
+        msg_id = None
+
         if msg_type == Msg.WRITE:
             if Msg.RESPONSE_GOOD not in data:
                 _LOGGER.error(f"Command Failed: {msg}: {data}")
+                retval = False
             else:
                 _LOGGER.debug(f"Command Succeeded: {msg}: {data}")
         else:
-            """Find the matching item or returns None"""
+            """Find the matching item or returns None."""
             msg_id = next(
                 (
                     x
@@ -269,21 +316,21 @@ class Connection:
                 None,
             )
 
-            if msg_id is None:
-                _LOGGER.error(f"Unexpected response: {plaintext}")
-                return False
-            else:
+            if msg_id is not None:
                 cur_msg = MSGS[msg_id]
 
-            """notify any listeners for this message"""
-            [
-                await x[1]((msg_id, x[1]), data)
-                for x in self._raw_callback_list
-                if MSGS[x[0]].msg == msg
-            ]
+                """Notify any listeners for this message."""
+                [
+                    await x[1]((msg_id, x[1]), data)
+                    for x in self._raw_callback_list
+                    if MSGS[x[0]].msg == msg
+                ]
 
-            if cur_msg.map is not None:
-                await self._populate_items(data, cur_msg)
+                if cur_msg.map is not None:
+                    await self._populate_items(data, cur_msg)
+            else:
+                _LOGGER.error(f"Unexpected response: {plaintext}")
+                retval = False
 
         if msg in self._responses_waiting:
             self._responses_waiting.remove(msg)
@@ -291,85 +338,167 @@ class Connection:
             if finished:
                 _LOGGER.debug("Received all responses")
 
-        return True
+        return retval
+
+    def calculate_auto_sched_times(self, key):
+        time_on_key = self._get_key((key, ON, TIME))
+        hour_on_key = self._get_key((key, ON, HOUR))
+        min_on_key = self._get_key((key, ON, MIN))
+        time_off_key = self._get_key((key, OFF, TIME))
+        hour_off_key = self._get_key((key, OFF, HOUR))
+        min_off_key = self._get_key((key, OFF, MIN))
+
+        """Set human-readable "on" time"""
+        self._current_status[
+            time_on_key
+        ] = f"{'%02d' % self._current_status[hour_on_key]}:{'%02d' % self._current_status[min_on_key]}"
+
+        """Set human-readable "off" time"""
+        self._current_status[
+            time_off_key
+        ] = f"{'%02d' % self._current_status[hour_off_key]}:{'%02d' % self._current_status[min_off_key]}"
 
     async def _populate_items(self, data, cur_msg):
-        """process all the fields"""
+        def handle_cached_value(element, value):
+            """See if we've stored a temporary value that may take a while to update on the machine"""
+            if element in self._temp_state:
+                if value == self._temp_state[element]:
+                    """Value has updated, so remove the temp value"""
+                    _LOGGER.debug(
+                        f"Element {element} has updated to {value}, pop the cached value"
+                    )
+                    self._temp_state.pop(element, None)
+                else:
+                    """Value hasn't updated yet, so use the cached value"""
+                    _LOGGER.debug(
+                        f"Element {element} hasn't updated yet, so use the cached value {value}"
+                    )
+                    value = self._temp_state[element]
+
+            return value
+
+        """Process all the fields and populate shared dict."""
         map = cur_msg.map
         for elem in map:
-            """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
-            index = elem.index * 2
-            size = elem.size * 2
+            value = None
 
-            """Extract value for this field"""
-            value = data[index : index + size]
+            """Don't decode a value if we just plan to calculate it"""
+            if elem.index != CALCULATED_VALUE:
+                """The strings are ASCII-encoded hex, so each value takes 2 bytes."""
+                index = elem.index * 2
+                size = elem.size * 2
 
-            if elem.type == Elem.INT:
-                """Convert from ascii-encoded hex"""
-                value = int(value, 16)
+                """Extract value for this field."""
+                value = data[index : index + size]
 
-            if any(x in map[elem] for x in DIVIDE_KEYS):
+                if elem.type == Elem.INT:
+                    """Convert from ascii-encoded hex."""
+                    value = int(value, 16)
+
+            raw_key = map[elem]
+
+            """Construct key name if needed."""
+            key = self._get_key(raw_key)
+
+            if any(x in key for x in DIVIDE_KEYS):
                 value = value / 10
-            elif map[elem] == FIRMWARE_VER:
+            elif key == FIRMWARE_VER:
                 value = "%0.2f" % (value / 100)
-            elif map[elem] in SERIAL_NUMBERS:
+            elif key in SERIAL_NUMBERS:
                 value = "".join(
                     [chr(int(value[i : i + 2], 16)) for i in range(0, len(value), 2)]
                 )
+                """Chop off any trailing nulls."""
                 value = value.partition("\0")[0]
 
-            elif map[elem] == AUTO_BITFIELD:
+            elif key == AUTO_BITFIELD:
+                bitfield = value
                 for item in AUTO_BITFIELD_MAP:
-                    setting = ENABLED if value & 0x01 else DISABLED
-                    self._current_status[AUTO_BITFIELD_MAP[item]] = setting
-                    value = value >> 1
-                continue
-            elif map[elem] in DRINK_OFFSET_MAP:
-                offset_index = DRINK_OFFSET_MAP[map[elem]]
-                if map[elem] not in self._current_status:
-                    """If we haven't seen the value before, calculate the offset"""
-                    self._current_status.update(
-                        {offset_index: value - self._current_status[offset_index]}
+                    setting = ENABLED if bitfield & 0x01 else DISABLED
+                    processed_key = self._get_key(AUTO_BITFIELD_MAP[item])
+                    self._current_status[processed_key] = handle_cached_value(
+                        processed_key, setting
                     )
-                """Offset the value"""
-                value -= self._current_status[offset_index]
+                    bitfield = bitfield >> 1
+            elif raw_key in DRINK_OFFSET_MAP:
+                if key == TOTAL_FLUSHING:
+                    value = (
+                        self._current_status[TOTAL_COFFEE_ACTIVATIONS]
+                        - self._current_status[TOTAL_COFFEE]
+                    )
+                offset_key = self._get_key(DRINK_OFFSET_MAP[raw_key])
+                if key not in self._current_status:
+                    """If we haven't seen the value before, calculate the offset."""
+                    self._current_status.update(
+                        {offset_key: value - self._current_status[offset_key]}
+                    )
+                """Apply the offset to the value."""
+                value = value - self._current_status[offset_key]
+            elif key == DAYS_SINCE_BUILT:
+                """Convert hours to days."""
+                value = round(value / 24)
+            elif key == HEATING_STATE:
+                value = [x for x in HEATING_VALUES if HEATING_VALUES[x] & value]
+                """Don't add attribute and remove it if machine isn't currently running."""
+                if not value:
+                    self._current_status.pop(key, None)
+                    continue
+            elif key in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
+                """Don't add attributes and remove them if machine isn't currently running."""
+                if not value:
+                    self._current_status.pop(key, None)
+                    continue
+            elif key == FRONT_PANEL_DISPLAY:
+                value = (
+                    bytes.fromhex(value)
+                    .decode("latin-1")
+                    .replace("\xdf", "\u00b0")  # Degree symbol
+                    .replace(
+                        "\xdb", "\u25A1"
+                    )  # turn a block into an outline block (heating element off)
+                    .replace(
+                        "\xff", "\u25A0"
+                    )  # turn \xff into a solid block (heating element on)
+                )
+            elif key in AUTO_SCHED_MAP.values() and elem.index == CALCULATED_VALUE:
+                self.calculate_auto_sched_times(key)
+                continue
 
-            self._current_status[map[elem]] = value
+            self._current_status[key] = handle_cached_value(key, value)
 
-    async def _send_msg(self, msg_id, data=None, key=None):
-        """Send command to espresso machine"""
+    async def _send_msg(self, msg_id, data=None, base=None):
+        """Send command to the espresso machine."""
+        msg = MSGS[msg_id]
 
+        _LOGGER.debug(f"Sending {msg.msg} with {data} {base}")
+        await self._send_raw_msg(msg.msg, msg.msg_type, data, base)
+
+    async def _send_raw_msg(self, msg, msg_type, data=None, base=None):
         def checksum(buffer):
-            """Compute check byte"""
+            """Compute check byte."""
             buffer = bytes(buffer, "utf-8")
             return "%0.2X" % (sum(buffer) % 256)
 
-        """Prevent race conditions - can be called from different tasks"""
+        """Prevent race conditions - can be called from different tasks."""
         async with self._lock:
-            msg = MSGS[msg_id]
-            _LOGGER.debug(f"Sending {msg.msg} with {data}")
-
-            """Connect if we don't have an active connection"""
+            """Connect if we don't have an active connection."""
             result = await self._connect()
 
             if not result:
-                raise ConnectionFail("Connection failed")
+                raise ConnectionFail("Connection failed.")
 
             if not self._writer:
                 raise ConnectionFail(f"self._writer={self._writer}")
 
-            """If a key was provided, replace the second byte of the message"""
-            msg_to_send = msg.msg if not key else msg.msg[:2] + key + msg.msg[4:]
+            """If a key was provided, replace the second byte of the message."""
+            msg_to_send = msg if not base else msg[:2] + base + msg[4:]
 
-            if key:
-                msg_to_send = msg_to_send[:2] + key + msg_to_send[4:]
-
-            plaintext = msg.msg_type + msg_to_send
+            plaintext = msg_type + msg_to_send
 
             if data is not None:
                 plaintext += data
 
-            """Add the check byte"""
+            """Add the check byte."""
             plaintext += checksum(plaintext)
 
             loop = asyncio.get_event_loop()
@@ -381,24 +510,24 @@ class Connection:
             self._writer.write(bytes(ciphertext, "utf-8"))
             await self._writer.drain()
 
-            """Remember that we're waiting for a response"""
+            """Remember that we're waiting for a response."""
             self._responses_waiting.append(msg_to_send)
 
-            """Note when the command was sent"""
+            """Note when the command was sent."""
             self._start_time = datetime.now()
 
-            _LOGGER.debug("Finished sending")
 
-
-class AuthFail(BaseException):
-    """Error to indicate there is invalid auth"""
+class AuthFail(Exception):
+    """Error to indicate there is invalid auth info."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
+        super().__init__(msg)
 
 
-class ConnectionFail(BaseException):
-    """Error to indicate there is no Connection"""
+class ConnectionFail(Exception):
+    """Error to indicate there is no connection."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
+        super().__init__(msg)

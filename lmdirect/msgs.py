@@ -8,76 +8,92 @@ MODEL_LM = "Linea Mini"
 # Tags
 
 from lmdirect.const import (
+    CALCULATED_VALUE,
     CONTINUOUS_OFFSET,
-    DRINKS_K1_OFFSET,
-    DRINKS_K2_OFFSET,
-    DRINKS_K3_OFFSET,
-    DRINKS_K4_OFFSET,
-    HOT_WATER_OFFSET,
+    FLUSHING_OFFSET,
 )
+
+OFFSET = "offset"
 
 DATE_RECEIVED = "date_received"
 POWER = "power"
+POWER_MYSTERY = "power_mystery"
 TEMP_COFFEE = "coffee_temp"
 TEMP_STEAM = "steam_temp"
-TSET_STEAM = "steam_set_temp"
 TSET_COFFEE = "coffee_set_temp"
-DOSE_K1 = "dose_k1"
-DOSE_K2 = "dose_k2"
-DOSE_K3 = "dose_k3"
-DOSE_K4 = "dose_k4"
-DOSE_K5 = "dose_k5"
-DOSE_TEA = "dose_tea"
+TSET_STEAM = "steam_set_temp"
+
+TEMP_KEYS = [TEMP_COFFEE, TEMP_STEAM, TSET_COFFEE, TSET_STEAM]
+TSET_KEYS = [TSET_COFFEE, TSET_STEAM]
+
+DOSE = "dose"
+
+DOSE_HOT_WATER = "dose_hot_water"
 ENABLE_PREBREWING = "enable_prebrewing"
-PREBREWING_TON_K1 = "prebrewing_ton_k1"
-PREBREWING_TON_K2 = "prebrewing_ton_k2"
-PREBREWING_TON_K3 = "prebrewing_ton_k3"
-PREBREWING_TON_K4 = "prebrewing_ton_k4"
-PREBREWING_TOFF_K1 = "prebrewing_toff_k1"
-PREBREWING_TOFF_K2 = "prebrewing_toff_k2"
-PREBREWING_TOFF_K3 = "prebrewing_toff_k3"
-PREBREWING_TOFF_K4 = "prebrewing_toff_k4"
-DRINKS_K1 = "drinks_k1"
-DRINKS_K2 = "drinks_k2"
-DRINKS_K3 = "drinks_k3"
-DRINKS_K4 = "drinks_k4"
+
+PREBREWING = "prebrewing"
+TON = "ton"
+TOFF = "toff"
+
+DRINKS = "drinks"
+
 CONTINUOUS = "continuous"
 TOTAL_COFFEE = "total_coffee"
 HOT_WATER = "hot_water"
 DRINK_MYSTERY = "drink_mystery"
-TOTAL_DRINKS = "total_drinks"
+TOTAL_COFFEE_ACTIVATIONS = "total_coffee_activations"
 HOT_WATER_2 = "hot_water_2"
-DRINKS_TEA = "drinks_tea"
+DRINKS_HOT_WATER = "drinks_hot_water"
+TOTAL_FLUSHING = "total_flushing"
+MACHINE_NAME = "machine_name"
+FRONT_PANEL_DISPLAY = "front_panel_display"
+MYSTERY_VALUES = "mystery_values"
+
+VAL = "val"
+
+HEATING_STATE = "heating_state"
+STEAM_HEATER_ON = "steam_heater_on"
+COFFEE_HEATER_ON = "coffee_heater_on"
+HEATING_ON = "heating_on"
+PUMP_ON = "pump_on"
+BREW_SOLENOID_ON = "brew_solenoid_on"
+HOT_WATER_SOLENOID_ON = "hot_water_solenoid_on"
+BOILER_FILL_SOLENOID_ON = "boiler_fill_solenoid_on"
+
+KEY_ACTIVE = "key_active"
+CURRENT_PULSE_COUNT = "current_pulse_count"
+
+COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
+STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
+MACHINE_RUNNING_SECONDS = "machine_running_seconds"
+DAYS_SINCE_BUILT = "days_since_built"
+PUMP_ON_SECONDS = "pump_on_seconds"
+WATER_ON_SECONDS = "water_on_seconds"
 
 FIRMWARE_VER = "firmware_ver"
 MODULE_SER_NUM = "module_ser_num"
 
 UPDATE_AVAILABLE = "update_available"
 
-SUN_ON = "sun_on"
-SUN_OFF = "sun_off"
-MON_ON = "mon_on"
-MON_OFF = "mon_off"
-TUE_ON = "tue_on"
-TUE_OFF = "tue_off"
-WED_ON = "wed_on"
-WED_OFF = "wed_off"
-THU_ON = "thu_on"
-THU_OFF = "thu_off"
-FRI_ON = "fri_on"
-FRI_OFF = "fri_off"
-SAT_ON = "sat_on"
-SAT_OFF = "sat_off"
+ON = "on"
+OFF = "off"
+HOUR = "hour"
+MIN = "min"
+AUTO = "auto"
+TIME = "time"
+
+GLOBAL = "global"
+MON = "mon"
+TUE = "tue"
+WED = "wed"
+THU = "thu"
+FRI = "fri"
+SAT = "sat"
+SUN = "sun"
+
+DAYS = [MON, TUE, WED, THU, FRI, SAT, SUN]
 
 AUTO_BITFIELD = "auto_bitfield"
-GLOBAL_AUTO = "global_auto"
-SUN_AUTO = "sun"
-MON_AUTO = "mon"
-TUE_AUTO = "tue"
-WED_AUTO = "wed"
-THU_AUTO = "thu"
-FRI_AUTO = "fri"
-SAT_AUTO = "sat"
 
 SECOND = "second"
 MINUTE = "minute"
@@ -87,7 +103,8 @@ DAY = "day"
 MONTH = "month"
 YEAR = "month"
 
-FLOW_MYSTERY = "flow_mystery"
+FLOW_KEY = "flow_key"
+FLOW_RATE = "flow_rate"
 FLOW_PULSES = "flow_pulses"
 FLOW_SECONDS = "flow_seconds"
 
@@ -152,11 +169,25 @@ TEMP_REPORT_MAP = {Elem(0, 2): TEMP_COFFEE, Elem(2, 2): TEMP_STEAM}
 # 70: Check byte
 
 STATUS_MAP = {
-    Elem(1, 1): FIRMWARE_VER,
+    Elem(1): FIRMWARE_VER,
     Elem(3, 12, type=Elem.STRING): MODULE_SER_NUM,
-    Elem(23, 1): POWER,
-    # Elem(32, 2): TEMP_COFFEE,
-    # Elem(34, 2): TEMP_STEAM,
+    Elem(15): POWER_MYSTERY,
+    Elem(17): KEY_ACTIVE,
+    Elem(19, 2): CURRENT_PULSE_COUNT,
+    # Elem(23): POWER,
+    Elem(27): HEATING_STATE,
+    # Elem(28, 2): TEMP_COFFEE,
+    # Elem(30, 2): TEMP_STEAM,
+}
+
+HEATING_VALUES = {
+    HEATING_ON: 0x10,
+    COFFEE_HEATER_ON: 0x20,
+    STEAM_HEATER_ON: 0x40,
+    PUMP_ON: 0x01,
+    BREW_SOLENOID_ON: 0x02,
+    BOILER_FILL_SOLENOID_ON: 0x04,  # ??
+    HOT_WATER_SOLENOID_ON: 0x08,
 }
 
 # R
@@ -178,27 +209,28 @@ STATUS_MAP = {
 # 28: 0078: Dose B3
 # 30: 0085: Dose B4
 # 32: 03E8: Dose B5
-# 34: 08: Seconds hot water for Tea
+# 34: 08: Seconds hot water
 # 35: Check byte
 
 CONFIG_MAP = {
+    Elem(0): POWER,
     Elem(7, 2): TSET_COFFEE,
     Elem(9, 2): TSET_STEAM,
     Elem(11): ENABLE_PREBREWING,
-    Elem(12): PREBREWING_TON_K1,
-    Elem(13): PREBREWING_TON_K2,
-    Elem(14): PREBREWING_TON_K3,
-    Elem(15): PREBREWING_TON_K4,
-    Elem(16): PREBREWING_TOFF_K1,
-    Elem(17): PREBREWING_TOFF_K2,
-    Elem(18): PREBREWING_TOFF_K3,
-    Elem(19): PREBREWING_TOFF_K4,
-    Elem(20, 2): DOSE_K1,
-    Elem(22, 2): DOSE_K2,
-    Elem(24, 2): DOSE_K3,
-    Elem(26, 2): DOSE_K4,
-    Elem(28, 2): DOSE_K5,
-    Elem(30): DOSE_TEA,
+    Elem(12): (PREBREWING, TON, "k1"),
+    Elem(13): (PREBREWING, TON, "k2"),
+    Elem(14): (PREBREWING, TON, "k3"),
+    Elem(15): (PREBREWING, TON, "k4"),
+    Elem(16): (PREBREWING, TOFF, "k1"),
+    Elem(17): (PREBREWING, TOFF, "k2"),
+    Elem(18): (PREBREWING, TOFF, "k3"),
+    Elem(19): (PREBREWING, TOFF, "k4"),
+    Elem(20, 2): (DOSE, "k1"),
+    Elem(22, 2): (DOSE, "k2"),
+    Elem(24, 2): (DOSE, "k3"),
+    Elem(26, 2): (DOSE, "k4"),
+    Elem(28, 2): (DOSE, "k5"),
+    Elem(30): DOSE_HOT_WATER,
 }
 
 # Response to R 03 10 00 1D EB
@@ -225,31 +257,56 @@ CONFIG_MAP = {
 
 AUTO_SCHED_MAP = {
     Elem(0): AUTO_BITFIELD,
-    Elem(1): SUN_ON,
-    Elem(2): SUN_OFF,
-    Elem(3): MON_ON,
-    Elem(4): MON_OFF,
-    Elem(5): TUE_ON,
-    Elem(6): TUE_OFF,
-    Elem(7): WED_ON,
-    Elem(8): WED_OFF,
-    Elem(9): THU_ON,
-    Elem(10): THU_OFF,
-    Elem(11): FRI_ON,
-    Elem(12): FRI_OFF,
-    Elem(13): SAT_ON,
-    Elem(14): SAT_OFF,
+    Elem(1): (MON, ON, HOUR),
+    Elem(2): (MON, OFF, HOUR),
+    Elem(3): (TUE, ON, HOUR),
+    Elem(4): (TUE, OFF, HOUR),
+    Elem(5): (WED, ON, HOUR),
+    Elem(6): (WED, OFF, HOUR),
+    Elem(7): (THU, ON, HOUR),
+    Elem(8): (THU, OFF, HOUR),
+    Elem(9): (FRI, ON, HOUR),
+    Elem(10): (FRI, OFF, HOUR),
+    Elem(11): (SAT, ON, HOUR),
+    Elem(12): (SAT, OFF, HOUR),
+    Elem(13): (SUN, ON, HOUR),
+    Elem(14): (SUN, OFF, HOUR),
+    Elem(15): (MON, ON, MIN),
+    Elem(16): (MON, OFF, MIN),
+    Elem(17): (TUE, ON, MIN),
+    Elem(18): (TUE, OFF, MIN),
+    Elem(19): (WED, ON, MIN),
+    Elem(20): (WED, OFF, MIN),
+    Elem(21): (THU, ON, MIN),
+    Elem(22): (THU, OFF, MIN),
+    Elem(23): (FRI, ON, MIN),
+    Elem(24): (FRI, OFF, MIN),
+    Elem(25): (SAT, ON, MIN),
+    Elem(26): (SAT, OFF, MIN),
+    Elem(27): (SUN, ON, MIN),
+    Elem(28): (SUN, OFF, MIN),
+    Elem(CALCULATED_VALUE): MON,
+    Elem(CALCULATED_VALUE): TUE,
+    Elem(CALCULATED_VALUE): WED,
+    Elem(CALCULATED_VALUE): THU,
+    Elem(CALCULATED_VALUE): FRI,
+    Elem(CALCULATED_VALUE): SAT,
+    Elem(CALCULATED_VALUE): SUN,
+}
+
+AUTO_ENABLE_MAP = {
+    Elem(0): AUTO_BITFIELD,
 }
 
 AUTO_BITFIELD_MAP = {
-    0: GLOBAL_AUTO,
-    1: MON_AUTO,
-    2: TUE_AUTO,
-    3: WED_AUTO,
-    4: THU_AUTO,
-    5: FRI_AUTO,
-    6: SAT_AUTO,
-    7: SUN_AUTO,
+    0: (GLOBAL, AUTO),
+    1: (MON, AUTO),
+    2: (TUE, AUTO),
+    3: (WED, AUTO),
+    4: (THU, AUTO),
+    5: (FRI, AUTO),
+    6: (SAT, AUTO),
+    7: (SUN, AUTO),
 }
 
 # W: Write
@@ -285,77 +342,150 @@ SER_NUM_MAP = {
 # B3: Check byte
 
 DATETIME_MAP = {
-    Elem(0, 1): SECOND,
-    Elem(1, 1): MINUTE,
-    Elem(2, 1): HOUR,
-    Elem(3, 1): DAYOFWEEK,
-    Elem(4, 1): DAY,
-    Elem(5, 1): MONTH,
-    Elem(6, 1): YEAR,
+    Elem(0): SECOND,
+    Elem(1): MINUTE,
+    Elem(2): HOUR,
+    Elem(3): DAYOFWEEK,
+    Elem(4): DAY,
+    Elem(5): MONTH,
+    Elem(6): YEAR,
 }
 
 # R
 # 0020002C
-# 0000014A: Key 1 (1 espresso)
-# 00000096: Key 2 (2 espressos) * 2 = 0x12C
-# 000001B0: Key 3 (1 coffee)
-# 00000021: Key 4 (2 coffees) * 2 = 0x42
-# 00000563: Flushing
-# 00000914: From Coffee boiler (total of above)
-# 00000010: Tea
-# 0000000A: ?? Doesn't seem to change
-# 00000ADE: ?? Increments every button press
-# 00000010: Also Tea?
-# 00000032: # Tea, if you let it finish
+# 0000014A: Key 1 (1 espresso) Completed Drinks
+# 00000096: Key 2 (2 espressos) Completed Drinks
+# 000001B0: Key 3 (1 coffee) Completed Drinks
+# 00000021: Key 4 (2 coffees) Completed Drinks
+# 00000563: Continuous Completed Drinks
+# 00000914: Total Completed Coffee Drinks (total of above)
+# 00000010: Hot water activations
+# 0000000A: Increments every so often (?)
+# 00000ADE: Total Coffee Drink Activations
+# 00000010: Hot water activations
+# 00000032: Completed Hot Water
 
 DRINK_STATS_MAP = {
-    Elem(0, 4): DRINKS_K1,
-    Elem(4, 4): DRINKS_K2,
-    Elem(8, 4): DRINKS_K3,
-    Elem(12, 4): DRINKS_K4,
+    Elem(0, 4): (DRINKS, "k1"),
+    Elem(4, 4): (DRINKS, "k2"),
+    Elem(8, 4): (DRINKS, "k3"),
+    Elem(12, 4): (DRINKS, "k4"),
     Elem(16, 4): CONTINUOUS,
     Elem(20, 4): TOTAL_COFFEE,
     Elem(24, 4): HOT_WATER,
     Elem(28, 4): DRINK_MYSTERY,
-    Elem(32, 4): TOTAL_DRINKS,
+    Elem(32, 4): TOTAL_COFFEE_ACTIVATIONS,
     Elem(36, 4): HOT_WATER_2,
-    Elem(40, 4): DRINKS_TEA,
+    Elem(40, 4): DRINKS_HOT_WATER,
+    Elem(CALCULATED_VALUE): TOTAL_FLUSHING,
 }
 
 GATEWAY_DRINK_MAP = {
-    -1: HOT_WATER_OFFSET,
-    0: DRINKS_K1_OFFSET,
-    1: DRINKS_K2_OFFSET,
-    2: DRINKS_K3_OFFSET,
-    3: DRINKS_K4_OFFSET,
+    -1: FLUSHING_OFFSET,
+    0: (DRINKS, "k1", OFFSET),
+    1: (DRINKS, "k2", OFFSET),
+    2: (DRINKS, "k3", OFFSET),
+    3: (DRINKS, "k4", OFFSET),
     4: CONTINUOUS_OFFSET,
 }
 
 DRINK_OFFSET_MAP = {
-    HOT_WATER: HOT_WATER_OFFSET,
-    DRINKS_K1: DRINKS_K1_OFFSET,
-    DRINKS_K2: DRINKS_K2_OFFSET,
-    DRINKS_K3: DRINKS_K3_OFFSET,
-    DRINKS_K4: DRINKS_K4_OFFSET,
+    TOTAL_FLUSHING: FLUSHING_OFFSET,
+    (DRINKS, "k1"): (DRINKS, "k1", OFFSET),
+    (DRINKS, "k2"): (DRINKS, "k2", OFFSET),
+    (DRINKS, "k3"): (DRINKS, "k3", OFFSET),
+    (DRINKS, "k4"): (DRINKS, "k4", OFFSET),
     CONTINUOUS: CONTINUOUS_OFFSET,
 }
 
 # Z
 # 60000016
 # Snxxxxxxxxxx
-# 0401: Mystery
-# 0009: Pulses
-# 000C: Seconds (upper 12 bits are whole seconds, lower 4 bits are fractional)
+# 04: Key
+# 01: Rate (1 = high flow rate, 0 = low flow rate) - flips from 1 to 0 as flow slows
+# 0009: Seconds (upper 12 bits are whole seconds, lower 4 bits are fractional)
+# 000C: Pulses
 # 03B6: Coffee boiler temp
 # 04D4: Steam boiler temp
 # DC: Check byte
 
 WATER_FLOW_MAP = {
-    Elem(12, 2): FLOW_MYSTERY,
-    Elem(14, 2): FLOW_PULSES,
-    Elem(16, 2): FLOW_SECONDS,
+    Elem(12): FLOW_KEY,
+    Elem(13): FLOW_RATE,
+    Elem(14, 2): FLOW_SECONDS,
+    Elem(16, 2): FLOW_PULSES,
     # Elem(18, 2): TEMP_COFFEE,
     # Elem(20, 2): TEMP_STEAM,
+}
+
+# R
+# 00500018 - Message
+# 000001FE - Coffee heating element minutes on
+# 00000189 - Steam heating element minutes on
+# 00009772 - Number of seconds that the machine has been running, either coffee or hot water
+# 00001CA9 - Total hours of on-time
+# 00009500 - Number of seconds that the pump has been running
+# 00000075 - Number of seconds that hot water has been dispensed
+
+USAGE_MAP = {
+    Elem(0, 4): COFFEE_HEATING_ELEMENT_HOURS,
+    Elem(4, 4): STEAM_HEATING_ELEMENT_HOURS,
+    Elem(8, 4): MACHINE_RUNNING_SECONDS,
+    Elem(12, 4): DAYS_SINCE_BUILT,
+    Elem(16, 4): PUMP_ON_SECONDS,
+    Elem(20, 4): WATER_ON_SECONDS,
+}
+
+# 3230322E39DF46: 202.9°F
+# 20: Space
+# DBDB: Boiler states
+# 30393A32386100: 09:28a
+# 42555A5A2020202020202020: BUZZ
+# 543A3037: T:07
+
+
+FRONT_DISPLAY_MAP = {
+    Elem(0, 33, Elem.STRING): FRONT_PANEL_DISPLAY,
+}
+
+# 03
+# E7
+# 02
+# D8
+# 04
+# F8
+# 09
+# 5B
+# 02
+# C2
+# 03
+# 04
+# 08
+# 9E
+# 02
+# 49
+# 00
+# F5
+
+MYSTERY_MAP = {
+    Elem(0): (VAL, 1),
+    Elem(1): (VAL, 2),
+    Elem(2): (VAL, 3),
+    Elem(3): (VAL, 4),
+    Elem(4): (VAL, 5),
+    Elem(5): (VAL, 6),
+    Elem(6): (VAL, 7),
+    Elem(7): (VAL, 8),
+    Elem(8): (VAL, 9),
+    Elem(9): (VAL, 10),
+    Elem(10): (VAL, 11),
+    Elem(11): (VAL, 12),
+    Elem(12): (VAL, 13),
+    Elem(13): (VAL, 14),
+    Elem(14): (VAL, 15),
+    Elem(15): (VAL, 16),
+    Elem(16): (VAL, 17),
+    Elem(17): (VAL, 18),
 }
 
 
@@ -365,8 +495,8 @@ class Msg:
     GET_AUTO_SCHED = 2
     SET_POWER = 3
     GET_TEMP_REPORT = 4
-    SET_AUTO_ON = 4
-    SET_AUTO_OFF = 5
+    GET_AUTO_ENABLE = 4
+    SET_AUTO_ENABLE = 5
     GET_SER_NUM = 6
     GET_DATETIME = 7
     SET_COFFEE_TEMP = 8
@@ -374,18 +504,25 @@ class Msg:
     SET_PREBREWING_ENABLE = 10
     SET_AUTO_SCHED = 11
     SET_DOSE = 12
-    SET_DOSE_TEA = 13
+    SET_DOSE_HOT_WATER = 13
     SET_PREBREW_TIMES = 14
     GET_DRINK_STATS = 15
     GET_WATER_FLOW = 16
+    GET_USAGE_STATS = 17
+    GET_FRONT_DISPLAY = 18
+    GET_MYSTERY = 19
 
-    """Dose command starts at 0x14 for the first key and increments by 2 thereafter"""
+    """Auto on/off address starts at 0x11 for Monday and increments by 4 thereafter."""
+    AUTO_ON_OFF_HOUR_BASE = 0x11
+    AUTO_ON_OFF_MIN_BASE = 0x20
+
+    """Dose address starts at 0x14 for the first key and increments by 2 thereafter."""
     DOSE_KEY_BASE = 0x14
 
-    """Prebrew on base"""
+    """Prebrew on address base."""
     PREBREW_ON_BASE = 0x0C
 
-    """Prebrew off base"""
+    """Prebrew off address base."""
     PREBREW_OFF_BASE = 0x10
 
     READ = "R"
@@ -421,19 +558,35 @@ MSGS = {
     Msg.GET_STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
     Msg.GET_CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
     Msg.GET_AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
+    Msg.GET_AUTO_ENABLE: Msg(Msg.READ, "03100001", AUTO_ENABLE_MAP),
     Msg.GET_TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
     Msg.GET_SER_NUM: Msg(Msg.READ, "01000011", SER_NUM_MAP),
     Msg.GET_DATETIME: Msg(Msg.READ, "03000007", DATETIME_MAP),
     Msg.GET_DRINK_STATS: Msg(Msg.READ, "0020002C", DRINK_STATS_MAP),
     Msg.GET_WATER_FLOW: Msg(Msg.STREAM, "60000016", WATER_FLOW_MAP),
+    Msg.GET_USAGE_STATS: Msg(Msg.READ, "00500018", USAGE_MAP),
+    Msg.GET_FRONT_DISPLAY: Msg(Msg.READ, "60ED0021", FRONT_DISPLAY_MAP),
+    Msg.GET_MYSTERY: Msg(Msg.READ, "60DA0012", MYSTERY_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
     Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", None),
     Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", None),
-    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "0310001D", None),
+    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "03100002", None),
+    Msg.SET_AUTO_ENABLE: Msg(Msg.WRITE, "03100001", None),
     # Write config for keys (second byte is base + the key number and will be replaced)
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
-    Msg.SET_DOSE_TEA: Msg(Msg.WRITE, "001E0001", None),
+    Msg.SET_DOSE_HOT_WATER: Msg(Msg.WRITE, "001E0001", None),
     Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", None),
 }
+
+# 0000:001f - Config
+# 0020:004C - Drink Stats
+# 0050:0068 - Usage Stats
+# 0070:00AF - Unused (FF)
+# 00B0:00BB - Module Serial Number
+# 00C0:00CB - Module Serial Number
+# 00D0:00DF - Machine Name
+# 00E0:00FF - Unused (00)
+# 0100:010F - Machine Serial Number
+# 0110:011F -

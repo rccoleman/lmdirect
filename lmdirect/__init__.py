@@ -1,25 +1,46 @@
-"""lmdierct"""
+"""lmdirect package for connecting to the local La Marzocco API."""
 import asyncio
 import logging
 
-from lmdirect.const import DISABLED, ENABLED, MACHINE_NAME, MODEL_NAME, SERIAL_NUMBER
+from lmdirect.const import (
+    DISABLED,
+    ENABLED,
+    MACHINE_NAME,
+    MODEL_NAME,
+    SERIAL_NUMBER,
+    SET_POWER,
+    SET_AUTO_ON_OFF,
+    SET_AUTO_ON_OFF_TIMES,
+    SET_DOSE,
+    SET_DOSE_HOT_WATER,
+    SET_PREBREW_TIMES,
+    SET_COFFEE_TEMP,
+    SET_STEAM_TEMP,
+    SET_PREBREWING_ENABLE,
+)
 
 from .connection import Connection
 from .msgs import (
+    AUTO,
     AUTO_BITFIELD,
     AUTO_BITFIELD_MAP,
-    AUTO_SCHED_MAP,
-    DOSE_K1,
-    DOSE_TEA,
+    DAYS,
+    DOSE,
+    DOSE_HOT_WATER,
+    ENABLE_PREBREWING,
     FIRMWARE_VER,
-    GLOBAL_AUTO,
+    GLOBAL,
+    HOUR,
+    MIN,
     MODEL_GS3_AV,
     MODEL_LM,
-    MON_OFF,
-    MON_ON,
     MSGS,
-    PREBREWING_TOFF_K1,
-    PREBREWING_TON_K1,
+    OFF,
+    ON,
+    POWER,
+    PREBREWING,
+    TOFF,
+    TON,
     TSET_COFFEE,
     TSET_STEAM,
     TYPE_AUTO_ON_OFF,
@@ -34,62 +55,82 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class LMDirect(Connection):
+    """Represents and provides an interface to the local API to a La Marzocco espresso machine"""
+
     def __init__(self, machine_info):
         super().__init__(machine_info)
 
+        """Create locks to ensure correct previous status is retrieved for each service call"""
+        self._locks = {
+            x: asyncio.Lock()
+            for x in [
+                SET_POWER,
+                SET_AUTO_ON_OFF,
+                SET_AUTO_ON_OFF_TIMES,
+                SET_DOSE,
+                SET_DOSE_HOT_WATER,
+                SET_PREBREW_TIMES,
+                SET_COFFEE_TEMP,
+                SET_STEAM_TEMP,
+                SET_PREBREWING_ENABLE,
+            ]
+        }
+
     @property
     def current_status(self):
-        """Return a dict of all the properties that have been received"""
+        """Return a dict of all the properties that have been received."""
         return self._current_status
 
     @property
     def machine_name(self):
-        """Return the name of the machine"""
+        """Return the name of the machine."""
         return self._machine_info[MACHINE_NAME]
 
     @property
     def serial_number(self):
-        """Return serial number"""
+        """Return serial number."""
         return self._machine_info[SERIAL_NUMBER]
 
     @property
     def model_name(self):
-        """Return model name"""
+        """Return model name."""
         return self._machine_info[MODEL_NAME]
 
     @property
     def firmware_version(self):
-        """Return firmware version"""
+        """Return firmware version."""
         return self._current_status.get(FIRMWARE_VER, "Unknown")
 
     def register_callback(self, callback):
-        """Register callback for updates"""
+        """Register callback for updates."""
         if callable(callback):
             self._callback_list.append(callback)
 
     def register_raw_callback(self, msg, callback, **kwargs):
-        """Register a callback for the raw response to a command"""
+        """Register a callback for the raw response to a command."""
         if callable(callback):
             self._raw_callback_list.append((msg, callback))
 
     def deregister_raw_callback(self, key):
-        """Register a callback for the raw response to a command"""
+        """Register a callback for the raw response to a command."""
 
-        """The key is a tuple comprised of (msg, callback)"""
+        """The key is a tuple comprised of (msg, callback)."""
         if key in self._raw_callback_list:
             self._raw_callback_list.remove(key)
 
     async def connect(self):
+        """Connect to the machine."""
         return await self._connect()
 
     async def request_status(self):
-        """Request all status elements"""
+        """Request new data."""
         msgs = [
             Msg.GET_STATUS,
             Msg.GET_CONFIG,
             Msg.GET_AUTO_SCHED,
-            Msg.GET_DATETIME,
             Msg.GET_DRINK_STATS,
+            Msg.GET_USAGE_STATS,
+            Msg.GET_FRONT_DISPLAY,
         ]
 
         _LOGGER.debug("Requesting status")
@@ -98,28 +139,30 @@ class LMDirect(Connection):
         """Also wait for current temp"""
         self._responses_waiting.append(MSGS[Msg.GET_TEMP_REPORT].msg)
 
-    async def send_msg(self, msg_id, key=None, data=None):
-        """Send a message"""
-        await self._send_msg(msg_id, key=key, data=data)
+    async def send_msg(self, msg_id, **kwargs):
+        """Send a message to the machine."""
+        await self._send_msg(msg_id, **kwargs)
 
     async def close(self):
+        """Close the connection to the machine."""
+
         """Wait for the read task to exit"""
         if self._read_reaper_task:
             await asyncio.gather(self._read_reaper_task)
         await self._close()
 
     def call_callbacks(self, **kwargs):
-        """Call all callbacks to refresh data"""
+        """Call all callbacks to refresh data for listeners."""
         self._call_callbacks(**kwargs)
 
     """Utils"""
 
-    def convert_to_ascii(self, value, size):
-        """Convert an integer value to ASCII-encoded hex"""
+    def _convert_to_ascii(self, value, size):
+        """Convert an integer value to ASCII-encoded hex."""
         return ("%0" + str(size * 2) + "X") % value
 
-    def findkey(self, find_value, dict):
-        """Find a key from the value in a dict"""
+    def _findkey(self, find_value, dict):
+        """Find a key from the value in a dict."""
         return next(
             (key for key, value in dict.items() if value == find_value),
             None,
@@ -128,241 +171,275 @@ class LMDirect(Connection):
     """Services"""
 
     async def set_power(self, power):
-        """Send power on or power off commands"""
-        value = self.convert_to_ascii(0x01 if power else 0x00, size=1)
-        await self._send_msg(Msg.SET_POWER, data=value)
-        await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks(entity_type=TYPE_MAIN)
+        """Send power on or power off commands."""
+        async with self._locks[SET_POWER]:
+            power_value = 1 if power else 0
+            value = self._convert_to_ascii(power_value, size=1)
+            await self._send_msg(Msg.SET_POWER, data=value)
+
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[POWER] = power_value
+
+            self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_auto_on_off(self, day_of_week=None, enable=None):
-        """Configure auto on/off"""
+        """Configure auto on/off."""
 
-        async def auto_on_off_callback(key, data):
-            """Callback for the raw sequence"""
+        async with self._locks[SET_AUTO_ON_OFF]:
+            if None in [day_of_week, enable]:
+                raise InvalidInput(f"Some parameters invalid {day_of_week=} {enable=}")
 
-            """We don't need to continue looking for it"""
-            self.deregister_raw_callback(key)
-            _LOGGER.debug(f"Received raw callback: {data}")
-
-            try:
-                """Find the bit"""
-                elem = self.findkey(AUTO_BITFIELD, AUTO_SCHED_MAP)
-
-                """The strings are ASCII-encoded hex, so each value takes 2 bytes"""
-                index = elem.index * 2
-                size = elem.size * 2
-
-                """Extract value for this field"""
-                orig_value = int(data[index : index + size], 16)
-                bitmask = 0x01 << self.findkey(day_of_week, AUTO_BITFIELD_MAP)
-                new_value = self.convert_to_ascii(
-                    orig_value | bitmask if enable else orig_value & ~bitmask, 1
-                )
-
-                buf_to_send = data[:index] + new_value + data[index + size :]
-
-                self._current_status[day_of_week] = ENABLED if enable else DISABLED
-
-                await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
+            """We need the existing register value, so fail if we don't have it yet."""
+            if AUTO_BITFIELD not in self._current_status:
+                """Kick off a query so that we'll have the data later."""
                 await self._send_msg(Msg.GET_AUTO_SCHED)
+                raise NotReady(f"Query not completed yet")
 
-                self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
-            except Exception as err:
-                _LOGGER.debug(f"Caught exception: {err}")
+            """Extract value for this field."""
+            bitfield = self._current_status[AUTO_BITFIELD]
+            bitmask = 0x01 << self._findkey((day_of_week, AUTO), AUTO_BITFIELD_MAP)
+            bitfield = bitfield | bitmask if enable else bitfield & ~bitmask
+            buf_to_send = self._convert_to_ascii(bitfield, 1)
 
-        if None in [day_of_week, enable]:
-            msg = f"Some parameters invalid {day_of_week} {enable}"
-            raise InvalidInput(msg)
+            _LOGGER.debug(
+                f"set_on_off_enable: {buf_to_send=}, {MSGS[Msg.SET_AUTO_ENABLE].msg=}"
+            )
+            await self._send_msg(Msg.SET_AUTO_ENABLE, data=buf_to_send)
 
-        self.register_raw_callback(Msg.GET_AUTO_SCHED, auto_on_off_callback)
-        await self._send_msg(Msg.GET_AUTO_SCHED)
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[day_of_week] = ENABLED if enable else DISABLED
+                state[AUTO_BITFIELD] = bitfield
+
+            self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
 
     async def set_auto_on_off_global(self, value):
-        """Set global auto on/off"""
-        await self.set_auto_on_off(GLOBAL_AUTO, value)
+        """Set global auto on/off."""
+        await self.set_auto_on_off(GLOBAL, value)
 
-    async def set_auto_on_off_hours(
-        self, day_of_week=None, hour_on=None, hour_off=None
+    async def set_auto_on_off_times(
+        self,
+        day_of_week=None,
+        hour_on=None,
+        minute_on=None,
+        hour_off=None,
+        minute_off=None,
     ):
-        """Configure auto on/off"""
-
-        async def auto_on_off_callback(key, data):
-            """Callback for the raw sequence"""
-
-            """We don't need to continue looking for it"""
-            self.deregister_raw_callback(key)
-            _LOGGER.debug(f"Received raw callback: {data}")
-
-            try:
-                """Find the "on" element"""
-                elem = self.findkey(day_of_week + MON_ON[3:], AUTO_SCHED_MAP)
-
-                """The strings are ASCII-encoded hex, so each value takes 2 bytes and there 2 of them"""
-                index = elem.index * 2
-                size = elem.size * 4
-
-                """Construct the new "on" and "off" values"""
-                buf_to_send = (
-                    data[:index]
-                    + self.convert_to_ascii(hour_on, 1)
-                    + self.convert_to_ascii(hour_off, 1)
-                    + data[index + size :]
+        """Configure auto on/off hours."""
+        async with self._locks[SET_AUTO_ON_OFF_TIMES]:
+            if None in [day_of_week, hour_on, minute_on, hour_off, minute_off]:
+                raise InvalidInput(
+                    f"Some parameters invalid {day_of_week=} {hour_on=} {minute_on=} {hour_off=} {minute_off=}"
                 )
 
-                self._current_status[day_of_week + MON_ON[3:]] = hour_on
-                self._current_status[day_of_week + MON_OFF[3:]] = hour_off
+            isinstance(hour_on, str) and (hour_on := int(hour_on))
+            isinstance(minute_on, str) and (minute_on := int(minute_on))
 
-                await self._send_msg(Msg.SET_AUTO_SCHED, data=buf_to_send)
-                await self._send_msg(Msg.GET_AUTO_SCHED)
-                self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
-            except Exception as err:
-                _LOGGER.debug(f"Caught exception: {err}")
-                raise
+            isinstance(hour_off, str) and (hour_off := int(hour_off))
+            isinstance(minute_off, str) and (minute_off := int(minute_off))
 
-        if None in [day_of_week, hour_on, hour_off]:
-            msg = f"Some parameters invalid {day_of_week} {hour_on} {hour_off}"
-            raise InvalidInput(msg)
+            """Validate input."""
+            if not (
+                0 <= hour_on <= 23
+                and 0 <= minute_on <= 59
+                and 0 <= hour_off <= 23
+                and 0 <= minute_off <= 59
+                and day_of_week in DAYS
+            ):
+                raise InvalidInput(
+                    f"set_auto_on_off_times: Invalid values {day_of_week=} {hour_on=} {minute_on=} {hour_off=} {minute_off=}"
+                )
 
-        self.register_raw_callback(Msg.GET_AUTO_SCHED, auto_on_off_callback)
-        await self._send_msg(Msg.GET_AUTO_SCHED)
+            """Update hours."""
+            data = self._convert_to_ascii(hour_on, size=1) + self._convert_to_ascii(
+                hour_off, size=1
+            )
+            address_base = self._convert_to_ascii(
+                Msg.AUTO_ON_OFF_HOUR_BASE + (DAYS.index(day_of_week) * 2), size=1
+            )
+            _LOGGER.debug(
+                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
+            )
+            await self._send_msg(Msg.SET_AUTO_SCHED, base=address_base, data=data)
+
+            """Update minutes."""
+            data = self._convert_to_ascii(minute_on, size=1) + self._convert_to_ascii(
+                minute_off, size=1
+            )
+            address_base = self._convert_to_ascii(
+                Msg.AUTO_ON_OFF_MIN_BASE + (DAYS.index(day_of_week) * 2), size=1
+            )
+            _LOGGER.debug(
+                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
+            )
+            await self._send_msg(Msg.SET_AUTO_SCHED, base=address_base, data=data)
+
+        """Update the stored values to immediately reflect the change"""
+        for state in [self._temp_state, self._current_status]:
+            state[self._get_key((day_of_week, ON, HOUR))] = hour_on
+            state[self._get_key((day_of_week, ON, MIN))] = minute_on
+            state[self._get_key((day_of_week, OFF, HOUR))] = hour_off
+            state[self._get_key((day_of_week, OFF, MIN))] = minute_off
+
+        self.calculate_auto_sched_times(day_of_week)
+
+        self._call_callbacks(entity_type=TYPE_MAIN)
 
     async def set_dose(self, key=None, pulses=None):
-        """Set the coffee boiler temp in Celcius"""
+        """Set the coffee dose in pulses (~0.5ml)."""
 
-        if None in [key, pulses]:
-            msg = f"set_dose: Some parameters not specified {key} {pulses}"
-            raise InvalidInput(msg)
+        async with self._locks[SET_DOSE]:
+            if None in [key, pulses]:
+                raise InvalidInput(
+                    f"set_dose: Some parameters not specified {key=} {pulses=}"
+                )
 
-        if isinstance(pulses, str):
-            pulses = int(pulses)
+            isinstance(pulses, str) and (pulses := int(pulses))
+            isinstance(key, str) and (key := int(key))
 
-        if isinstance(key, str):
-            key = int(key)
+            """Validate input."""
+            if not (1 <= pulses <= 1000 and 1 <= key <= 5):
+                raise InvalidInput(f"set_dose: Invalid values {pulses=} {key=}")
 
-        """Validate input"""
-        if not (1 <= pulses <= 1000 and 1 <= key <= 5):
-            msg = f"set_dose: Invalid values pulses:{pulses} key:{key}"
-            raise InvalidInput(msg)
+            data = self._convert_to_ascii(pulses, size=2)
+            key = self._convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
+            await self._send_msg(Msg.SET_DOSE, base=key, data=data)
 
-        self._current_status[DOSE_K1.replace("1", str(key))] = pulses
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[self._get_key((DOSE, f"k{key}"))] = pulses
 
-        data = self.convert_to_ascii(pulses, size=2)
-        key = self.convert_to_ascii(Msg.DOSE_KEY_BASE + (key - 1) * 2, size=1)
-        await self._send_msg(Msg.SET_DOSE, key=key, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks(entity_type=TYPE_MAIN)
+            self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_dose_tea(self, seconds=None):
-        """Set the coffee boiler temp in Celcius"""
+    async def set_dose_hot_water(self, seconds=None):
+        """Set the hot water dose in seconds."""
 
-        if not seconds:
-            raise InvalidInput("set_dose_tea: Seconds not specified")
+        async with self._locks[SET_DOSE_HOT_WATER]:
+            if seconds is None:
+                raise InvalidInput("set_dose_hot_water: Seconds not specified")
 
-        if isinstance(seconds, str):
-            seconds = int(seconds)
+            isinstance(seconds, str) and (seconds := int(seconds))
 
-        """Validate input"""
-        if not (1 <= seconds <= 30):
-            msg = f"Invalid values seconds:{seconds}"
-            raise InvalidInput(msg)
+            """Validate input."""
+            if not (1 <= seconds <= 30):
+                raise InvalidInput(f"Invalid values {seconds=}")
 
-        self._current_status[DOSE_TEA] = seconds
+            data = self._convert_to_ascii(seconds, size=1)
+            await self._send_msg(Msg.SET_DOSE_HOT_WATER, data=data)
 
-        data = self.convert_to_ascii(seconds, size=1)
-        await self._send_msg(Msg.SET_DOSE_TEA, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks(entity_type=TYPE_MAIN)
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[DOSE_HOT_WATER] = seconds
 
-    async def set_prebrew_times(self, key=None, time_on=None, time_off=None):
-        """Set the coffee boiler temp in Celcius"""
+            self._call_callbacks(entity_type=TYPE_MAIN)
 
-        if None in [key, time_on, time_off]:
-            raise InvalidInput(
-                "set_prebrew_times: Some parameters invalid {key} {time_on} {time_off}"
-            )
+    async def set_prebrew_times(self, key=None, seconds_on=None, seconds_off=None):
+        """Set prebrew on/off times in seconds."""
 
-        if isinstance(time_on, str):
-            time_on = float(time_on)
+        async with self._locks[SET_PREBREW_TIMES]:
+            if None in [key, seconds_on, seconds_off]:
+                raise InvalidInput(
+                    "set_prebrew_times: Some parameters invalid {key=} {seconds_on=} {seconds_off=}"
+                )
 
-        if isinstance(time_off, str):
-            time_off = float(time_off)
+            seconds_on, seconds_off = [float(x) for x in [seconds_on, seconds_off]]
+            isinstance(key, str) and (key := int(key))
 
-        if isinstance(key, str):
-            key = int(key)
+            """Validate input."""
+            if not (
+                0 <= seconds_on <= 5.9 and 0 <= seconds_off <= 5.9 and 1 <= key <= 4
+            ):
+                raise InvalidInput(f"Invalid values {seconds_on=} {seconds_off=}")
 
-        """Validate input"""
-        if not (0 <= time_on <= 5.9 and 0 <= time_off <= 5.9 and 1 <= key <= 4):
-            msg = f"Invalid values time_on:{time_on} off_time:{time_off}"
-            raise InvalidInput(msg)
+            if not (
+                (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
+                or (self.model_name == MODEL_LM and key == 1)
+            ):
+                raise InvalidInput(f"Invalid values {key=}")
 
-        if not (
-            (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
-            or (self.model_name == MODEL_LM and key == 1)
-        ):
-            msg = f"Invalid values key:{key}"
-            raise InvalidInput(msg)
+            """Set "on" time."""
+            key_on = self._convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
+            data = self._convert_to_ascii(int(seconds_on * 10), size=1)
+            await self._send_msg(Msg.SET_PREBREW_TIMES, base=key_on, data=data)
 
-        self._current_status[PREBREWING_TON_K1.replace("1", str(key))] = time_on
-        self._current_status[PREBREWING_TOFF_K1.replace("1", str(key))] = time_off
+            """Set "off" time."""
+            key_off = self._convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
+            data = self._convert_to_ascii(int(seconds_off * 10), size=1)
+            await self._send_msg(Msg.SET_PREBREW_TIMES, base=key_off, data=data)
 
-        """set "on" time"""
-        key_on = self.convert_to_ascii(Msg.PREBREW_ON_BASE + (key - 1), size=1)
-        data = self.convert_to_ascii(int(time_on * 10), size=1)
-        await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_on, data=data)
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[self._get_key((PREBREWING, TON, f"k{key}"))] = seconds_on
+                state[self._get_key((PREBREWING, TOFF, f"k{key}"))] = seconds_off
 
-        """set "off" time"""
-        key_off = self.convert_to_ascii(Msg.PREBREW_OFF_BASE + (key - 1), size=1)
-        data = self.convert_to_ascii(int(time_off * 10), size=1)
-        await self._send_msg(Msg.SET_PREBREW_TIMES, key=key_off, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks(entity_type=TYPE_PREBREW)
+            self._call_callbacks(entity_type=TYPE_PREBREW)
 
     async def set_coffee_temp(self, temp=None):
-        """Set the coffee boiler temp in Celcius"""
+        """Set the coffee boiler temp in Celcius."""
 
-        if not temp:
-            raise InvalidInput("set_coffee__temp: Temperature not specified")
+        async with self._locks[SET_COFFEE_TEMP]:
+            if temp is None:
+                raise InvalidInput("set_coffee__temp: Temperature not specified")
 
-        if isinstance(temp, str):
-            temp = float(temp)
+            isinstance(temp, str) and (temp := float(temp))
+            temp = round(temp, 1)
 
-        temp = round(temp, 1)
+            data = self._convert_to_ascii(int(temp * 10), size=2)
+            await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
 
-        self._current_status[TSET_COFFEE] = temp
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[TSET_COFFEE] = temp
 
-        data = self.convert_to_ascii(int(temp * 10), size=2)
-        await self._send_msg(Msg.SET_COFFEE_TEMP, data=data)
-        await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
-        self._call_callbacks(entity_type=TYPE_COFFEE_TEMP)
+            self._call_callbacks(entity_type=TYPE_COFFEE_TEMP)
 
     async def set_steam_temp(self, temp=None):
-        """Set the steam boiler temp in Celcius"""
+        """Set the steam boiler temp in Celcius."""
 
-        if not temp:
-            raise InvalidInput("set_steam_temp: Temperature not specified")
+        async with self._locks[SET_STEAM_TEMP]:
+            if temp is None:
+                raise InvalidInput("set_steam_temp: Temperature not specified")
 
-        if isinstance(temp, str):
-            temp = float(temp)
+            isinstance(temp, str) and (temp := float(temp))
+            temp = round(temp, 1)
 
-        temp = round(temp, 1)
+            data = self._convert_to_ascii(int(temp * 10), size=2)
+            await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
 
-        self._current_status[TSET_STEAM] = temp
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[TSET_STEAM] = temp
 
-        data = self.convert_to_ascii(int(temp * 10), size=2)
-        await self._send_msg(Msg.SET_STEAM_TEMP, data=data)
-        await self._send_msg(Msg.GET_TEMP_REPORT, data=data)
-        self._call_callbacks(entity_type=TYPE_STEAM_TEMP)
+            self._call_callbacks(entity_type=TYPE_STEAM_TEMP)
 
     async def set_prebrewing_enable(self, enable):
-        """Turn prebrewing on or off"""
-        data = self.convert_to_ascii(0x01 if enable else 0x00, size=1)
-        await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
-        await self._send_msg(Msg.GET_CONFIG)
-        self._call_callbacks(entity_type=TYPE_PREBREW)
+        """Turn prebrewing on or off."""
+
+        async with self._locks[SET_PREBREWING_ENABLE]:
+            prebrew_value = 1 if enable else 0
+            data = self._convert_to_ascii(prebrew_value, size=1)
+
+            await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
+
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[ENABLE_PREBREWING] = prebrew_value
+
+            self._call_callbacks(entity_type=TYPE_PREBREW)
 
 
-class InvalidInput(BaseException):
-    """Error to indicate there is no Connection"""
+class InvalidInput(Exception):
+    """Error to indicate that invalid parameters were provided."""
 
     def __init__(self, msg):
-        _LOGGER.error(msg)
+        _LOGGER.exception(msg)
+        super().__init__(msg)
+
+
+class NotReady(Exception):
+    """Error to indicate that data hasn't been read yet that the service call relies on."""
+
+    def __init__(self, msg):
+        _LOGGER.exception(msg)
+        super().__init__(msg)

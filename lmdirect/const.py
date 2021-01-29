@@ -4,7 +4,6 @@ ENABLED = "Enabled"
 DISABLED = "Disabled"
 
 """API endpoints for the La Marzocco CMS and gateway."""
-GW_URL = "https://gw.lamarzocco.io/v1/home/machines"
 TOKEN_URL = "https://cms.lamarzocco.io/oauth/v2/token"
 CUSTOMER_URL = "https://cms.lamarzocco.io/api/customer"
 DRINK_COUNTER_URL = (
@@ -25,12 +24,9 @@ KEY = "key"
 SERIAL_NUMBER = "serial_number"
 MACHINE_NAME = "machine_name"
 MODEL_NAME = "model_name"
-DRINKS_K1_OFFSET = "drinks_k1_offset"
-DRINKS_K2_OFFSET = "drinks_k2_offset"
-DRINKS_K3_OFFSET = "drinks_k3_offset"
-DRINKS_K4_OFFSET = "drinks_k4_offset"
 CONTINUOUS_OFFSET = "continuous_offset"
-HOT_WATER_OFFSET = "hot_water_offset"
+FLUSHING_OFFSET = "flushing_offset"
+CALCULATED_VALUE = "calculated_value"
 
 CONFIG_PARAMS = [
     HOST,
@@ -43,10 +39,15 @@ CONFIG_PARAMS = [
     SERIAL_NUMBER,
     MACHINE_NAME,
     MODEL_NAME,
-    DRINKS_K1_OFFSET,
-    DRINKS_K2_OFFSET,
-    DRINKS_K3_OFFSET,
-    DRINKS_K4_OFFSET,
-    CONTINUOUS_OFFSET,
-    HOT_WATER_OFFSET,
 ]
+
+# Services
+SET_POWER = "set_power"
+SET_AUTO_ON_OFF = "set_auto_on_off"
+SET_AUTO_ON_OFF_TIMES = "set_auto_on_off_times"
+SET_DOSE = "set_dose"
+SET_DOSE_HOT_WATER = "set_dose_hot_water"
+SET_PREBREW_TIMES = "set_prebrew_times"
+SET_COFFEE_TEMP = "set_coffee_temp"
+SET_STEAM_TEMP = "set_steam_temp"
+SET_PREBREWING_ENABLE = "set_prebrewing_enable"
