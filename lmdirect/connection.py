@@ -126,18 +126,21 @@ class Connection:
                 DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
             )
             if drink_info:
-                data = drink_info.json()["data"]
-                self._current_status.update(
-                    {
-                        self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
-                        for x in data
-                    }
-                )
+                _LOGGER.debug(f"{drink_info=}")
+                data = drink_info.json().get("data")
+                if data:
+                    self._current_status.update(
+                        {
+                            self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
+                            for x in data
+                        }
+                    )
 
         if UPDATE_AVAILABLE not in self._current_status:
             update_info = await client.get(UPDATE_URL)
+            _LOGGER.debug(f"{update_info=}")
             if update_info:
-                data = update_info.json()["data"]
+                data = update_info.json().get("data")
                 self._update_available = "Yes" if data else "No"
 
         """Done with the cloud API, close."""
@@ -430,10 +433,10 @@ class Connection:
                 if key not in self._current_status:
                     """If we haven't seen the value before, calculate the offset."""
                     self._current_status.update(
-                        {offset_key: value - self._current_status[offset_key]}
+                        {offset_key: value - self._current_status.get(offset_key, 0)}
                     )
                 """Apply the offset to the value."""
-                value = value - self._current_status[offset_key]
+                value = value - self._current_status.get(offset_key, 0)
             elif key == DAYS_SINCE_BUILT:
                 """Convert hours to days."""
                 value = round(value / 24)
