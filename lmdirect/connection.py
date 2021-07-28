@@ -521,7 +521,6 @@ class AuthFail(Exception):
     """Error to indicate there is invalid auth info."""
 
     def __init__(self, msg):
-        _LOGGER.exception(msg)
         super().__init__(msg)
 
 
@@ -529,5 +528,4 @@ class ConnectionFail(Exception):
     """Error to indicate there is no connection."""
 
     def __init__(self, msg):
-        _LOGGER.exception(msg)
         super().__init__(msg)
