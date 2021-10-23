@@ -75,73 +75,69 @@ class Connection:
         """Retrieve the machine info from the cloud APIs."""
         _LOGGER.debug(f"Retrieving machine info")
 
-        client = AsyncOAuth2Client(
+        async with AsyncOAuth2Client(
             client_id=machine_info[CLIENT_ID],
             client_secret=machine_info[CLIENT_SECRET],
             token_endpoint=TOKEN_URL,
-        )
+        ) as client:
 
-        headers = {
-            "client_id": machine_info[CLIENT_ID],
-            "client_secret": machine_info[CLIENT_SECRET],
-        }
+            headers = {
+                "client_id": machine_info[CLIENT_ID],
+                "client_secret": machine_info[CLIENT_SECRET],
+            }
 
-        try:
-            await client.fetch_token(
-                url=TOKEN_URL,
-                username=machine_info[USERNAME],
-                password=machine_info[PASSWORD],
-                headers=headers,
-            )
-        except OAuthError as err:
-            await client.aclose()
-            raise AuthFail("Authorization failure") from err
-
-        except Exception as err:
-            await self.close()
-            raise AuthFail(f"Caught: {type(err)}, {err}") from err
-
-        """Only retrieve info if we're missing something."""
-        if any(
-            x not in machine_info
-            for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
-        ):
-            cust_info = await client.get(CUSTOMER_URL)
-            if cust_info:
-                fleet = cust_info.json()["data"]["fleet"][0]
-                machine_info[KEY] = fleet["communicationKey"]
-                machine_info[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
-                machine_info[MACHINE_NAME] = fleet["name"]
-                machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
-
-        """Add the machine and model names to the dict so that they're avaialble for attributes"""
-        self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
-        self._current_status.update({MODEL_NAME: machine_info[MODEL_NAME]})
-
-        if any(
-            self._get_key(x) not in self._current_status
-            for x in DRINK_OFFSET_MAP.values()
-        ):
-            drink_info = await client.get(
-                DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
-            )
-            if drink_info:
-                data = drink_info.json()["data"]
-                self._current_status.update(
-                    {
-                        self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
-                        for x in data
-                    }
+            try:
+                await client.fetch_token(
+                    url=TOKEN_URL,
+                    username=machine_info[USERNAME],
+                    password=machine_info[PASSWORD],
+                    headers=headers,
                 )
+            except OAuthError as err:
+                raise AuthFail("Authorization failure") from err
 
-        if UPDATE_AVAILABLE not in self._current_status:
-            update_info = await client.get(UPDATE_URL)
-            if update_info:
-                data = update_info.json()["data"]
-                self._update_available = "Yes" if data else "No"
+            except Exception as err:
+                raise AuthFail(f"Caught: {type(err)}, {err}") from err
 
-        """Done with the cloud API, close."""
-        await client.aclose()
+            """Only retrieve info if we're missing something."""
+            if any(
+                x not in machine_info
+                for x in [KEY, SERIAL_NUMBER, MACHINE_NAME, MODEL_NAME]
+            ):
+                cust_info = await client.get(CUSTOMER_URL)
+                if cust_info:
+                    fleet = cust_info.json()["data"]["fleet"][0]
+                    machine_info[KEY] = fleet["communicationKey"]
+                    machine_info[SERIAL_NUMBER] = fleet["machine"]["serialNumber"]
+                    machine_info[MACHINE_NAME] = fleet["name"]
+                    machine_info[MODEL_NAME] = fleet["machine"]["model"]["name"]
+
+            """Add the machine and model names to the dict so that they're avaialble for attributes"""
+            self._current_status.update({MACHINE_NAME: machine_info[MACHINE_NAME]})
+            self._current_status.update({MODEL_NAME: machine_info[MODEL_NAME]})
+
+            if any(
+                self._get_key(x) not in self._current_status
+                for x in DRINK_OFFSET_MAP.values()
+            ):
+                drink_info = await client.get(
+                    DRINK_COUNTER_URL.format(serial_number=machine_info[SERIAL_NUMBER])
+                )
+                if drink_info:
+                    data = drink_info.json().get("data")
+                    if data:
+                        self._current_status.update(
+                            {
+                                self._get_key(GATEWAY_DRINK_MAP[x["coffeeType"]]): x["count"]
+                                for x in data
+                            }
+                        )
+
+            if UPDATE_AVAILABLE not in self._current_status:
+                update_info = await client.get(UPDATE_URL)
+                if update_info:
+                    data = update_info.json().get("data")
+                    self._update_available = "Yes" if data else "No"
 
         self._initialized_machine_info = True
 
@@ -430,10 +426,10 @@ class Connection:
                 if key not in self._current_status:
                     """If we haven't seen the value before, calculate the offset."""
                     self._current_status.update(
-                        {offset_key: value - self._current_status[offset_key]}
+                        {offset_key: value - self._current_status.get(offset_key, 0)}
                     )
                 """Apply the offset to the value."""
-                value = value - self._current_status[offset_key]
+                value = value - self._current_status.get(offset_key, 0)
             elif key == DAYS_SINCE_BUILT:
                 """Convert hours to days."""
                 value = round(value / 24)
