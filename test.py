@@ -51,7 +51,10 @@ class lmtest:
         _LOGGER.debug("Starting polling task")
         while self._run:
             await self.lmdirect.request_status()
-            await asyncio.sleep(20)
+            try:
+                await asyncio.sleep(20)
+            except asyncio.CancelledError:
+                pass
 
     async def close(self):
         await self.lmdirect.close()
@@ -150,14 +153,8 @@ class lmtest:
                 break
 
         self._run = False
-
         self._poll_status_task.cancel()
-
-        try:
-            await asyncio.gather(self._poll_status_task)
-        except asyncio.CancelledError:
-            pass
-
+        await asyncio.gather(self._poll_status_task)
         await self.lmdirect.close()
 
 
