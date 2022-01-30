@@ -96,9 +96,6 @@ class Connection:
             except OAuthError as err:
                 raise AuthFail("Authorization failure") from err
 
-            except Exception as err:
-                raise AuthFail(f"Caught: {type(err)}, {err}") from err
-
             """Only retrieve info if we're missing something."""
             if any(
                 x not in machine_info
@@ -156,6 +153,8 @@ class Connection:
                 self._machine_info = await self.retrieve_machine_info(
                     self._machine_info
                 )
+            except AuthFail as err:
+                raise err
             except Exception as err:
                 raise ConnectionFail(
                     f"Exception retrieving machine info: {err}"
