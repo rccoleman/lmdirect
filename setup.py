@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name="lmdirect",
-    version="0.7.2",
+    version="0.8.0",
     description="A Python implementation of the local La Marzocco API",
     long_description=readme,
     long_description_content_type="text/markdown",
