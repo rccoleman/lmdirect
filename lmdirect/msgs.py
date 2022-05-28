@@ -23,9 +23,6 @@ TEMP_STEAM = "steam_temp"
 TSET_COFFEE = "coffee_set_temp"
 TSET_STEAM = "steam_set_temp"
 
-TEMP_KEYS = [TEMP_COFFEE, TEMP_STEAM, TSET_COFFEE, TSET_STEAM]
-TSET_KEYS = [TSET_COFFEE, TSET_STEAM]
-
 DOSE = "dose"
 
 DOSE_HOT_WATER = "dose_hot_water"
