@@ -62,6 +62,7 @@ BOILER_FILL_SOLENOID_ON = "boiler_fill_solenoid_on"
 
 KEY_ACTIVE = "key_active"
 CURRENT_PULSE_COUNT = "current_pulse_count"
+WATER_RESERVOIR_CONTACT = "water_reservoir_contact"
 
 COFFEE_HEATING_ELEMENT_HOURS = "coffee_heating_element_hours"
 STEAM_HEATING_ELEMENT_HOURS = "steam_heating_element_hours"
@@ -118,6 +119,7 @@ TYPE_AUTO_ON_OFF = 3
 TYPE_COFFEE_TEMP = 4
 TYPE_STEAM_TEMP = 5
 TYPE_DRINK_STATS = 6
+TYPE_WATER_RESERVOIR_CONTACT = 7
 
 DIVIDE_KEYS = ["temp", "prebrewing_to"]
 SERIAL_NUMBERS = [MACHINE_SER_NUM, MODULE_SER_NUM]
@@ -175,6 +177,7 @@ STATUS_MAP = {
     Elem(17): KEY_ACTIVE,
     Elem(19, 2): CURRENT_PULSE_COUNT,
     # Elem(23): POWER,
+    Elem(24): WATER_RESERVOIR_CONTACT,
     Elem(27): HEATING_STATE,
     # Elem(28, 2): TEMP_COFFEE,
     # Elem(30, 2): TEMP_STEAM,
