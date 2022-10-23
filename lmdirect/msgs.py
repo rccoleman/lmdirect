@@ -26,9 +26,12 @@ TSET_STEAM = "steam_set_temp"
 DOSE = "dose"
 
 DOSE_HOT_WATER = "dose_hot_water"
+PREBREW_FLAG = "prebrew_flag"
 ENABLE_PREBREWING = "enable_prebrewing"
+ENABLE_PREINFUSION = "enable_preinfusion"
 
 PREBREWING = "prebrewing"
+PREINFUSION = "preinfusion"
 TON = "ton"
 TOFF = "toff"
 
@@ -48,6 +51,9 @@ MYSTERY_VALUES = "mystery_values"
 
 VAL = "val"
 
+MYSTERY_1 = "mystery_1"
+MYSTERY_2 = "mystery_2"
+STEAM_BOILER_ENABLE = "steam_boiler_enable"
 HEATING_STATE = "heating_state"
 STEAM_HEATER_ON = "steam_heater_on"
 COFFEE_HEATER_ON = "coffee_heater_on"
@@ -117,8 +123,11 @@ TYPE_COFFEE_TEMP = 4
 TYPE_STEAM_TEMP = 5
 TYPE_DRINK_STATS = 6
 TYPE_WATER_RESERVOIR_CONTACT = 7
+TYPE_PREINFUSION = 8
+TYPE_START_BACKFLUSH = 9
+TYPE_STEAM_BOILER_ENABLE = 10
 
-DIVIDE_KEYS = ["temp", "prebrewing_to"]
+DIVIDE_KEYS = ["temp", "prebrewing_to", "preinfusion_k"]
 SERIAL_NUMBERS = [MACHINE_SER_NUM, MODULE_SER_NUM]
 
 # Response Maps
@@ -178,6 +187,9 @@ STATUS_MAP = {
     Elem(27): HEATING_STATE,
     # Elem(28, 2): TEMP_COFFEE,
     # Elem(30, 2): TEMP_STEAM,
+    Elem(32): MYSTERY_1,
+    Elem(33): MYSTERY_2,
+    Elem(34): STEAM_BOILER_ENABLE,
 }
 
 HEATING_VALUES = {
@@ -216,7 +228,8 @@ CONFIG_MAP = {
     Elem(0): POWER,
     Elem(7, 2): TSET_COFFEE,
     Elem(9, 2): TSET_STEAM,
-    Elem(11): ENABLE_PREBREWING,
+    Elem(11): PREBREW_FLAG,
+    Elem(CALCULATED_VALUE): ENABLE_PREBREWING,
     Elem(12): (PREBREWING, TON, "k1"),
     Elem(13): (PREBREWING, TON, "k2"),
     Elem(14): (PREBREWING, TON, "k3"),
@@ -445,7 +458,7 @@ USAGE_MAP = {
 
 
 FRONT_DISPLAY_MAP = {
-    Elem(0, 33, Elem.STRING): FRONT_PANEL_DISPLAY,
+    Elem(0, 16, Elem.STRING): FRONT_PANEL_DISPLAY,
 }
 
 # 03
@@ -488,6 +501,13 @@ MYSTERY_MAP = {
     Elem(17): (VAL, 18),
 }
 
+PREINFUSION_MAP = {
+    Elem(CALCULATED_VALUE): ENABLE_PREINFUSION,
+    Elem(0): (PREINFUSION, "k1"),
+    Elem(1): (PREINFUSION, "k2"),
+    Elem(2): (PREINFUSION, "k3"),
+    Elem(3): (PREINFUSION, "k4"),
+}
 
 class Msg:
     GET_STATUS = 0
@@ -511,6 +531,11 @@ class Msg:
     GET_USAGE_STATS = 17
     GET_FRONT_DISPLAY = 18
     GET_MYSTERY = 19
+    SET_START_BACKFLUSH = 20
+    GET_STATUS_MYSTERY = 21
+    GET_PREINFUSION_TIMES = 22
+    SET_PREINFUSION_TIME = 23
+    SET_STEAM_BOILER_ENABLE = 24
 
     """Auto on/off address starts at 0x11 for Monday and increments by 4 thereafter."""
     AUTO_ON_OFF_HOUR_BASE = 0x11
@@ -524,6 +549,9 @@ class Msg:
 
     """Prebrew off address base."""
     PREBREW_OFF_BASE = 0x10
+
+    """Preinfusion address base."""
+    PREINFUSION_BASE = 0xE2
 
     READ = "R"
     WRITE = "W"
@@ -555,7 +583,7 @@ class Msg:
 
 MSGS = {
     # Reads
-    Msg.GET_STATUS: Msg(Msg.READ, "40000020", STATUS_MAP),
+    Msg.GET_STATUS: Msg(Msg.READ, "40000023", STATUS_MAP),
     Msg.GET_CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
     Msg.GET_AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
     Msg.GET_AUTO_ENABLE: Msg(Msg.READ, "03100001", AUTO_ENABLE_MAP),
@@ -565,8 +593,10 @@ MSGS = {
     Msg.GET_DRINK_STATS: Msg(Msg.READ, "0020002C", DRINK_STATS_MAP),
     Msg.GET_WATER_FLOW: Msg(Msg.STREAM, "60000016", WATER_FLOW_MAP),
     Msg.GET_USAGE_STATS: Msg(Msg.READ, "00500018", USAGE_MAP),
-    Msg.GET_FRONT_DISPLAY: Msg(Msg.READ, "60ED0021", FRONT_DISPLAY_MAP),
+    Msg.GET_FRONT_DISPLAY: Msg(Msg.READ, "60EF0010", FRONT_DISPLAY_MAP),
     Msg.GET_MYSTERY: Msg(Msg.READ, "60DA0012", MYSTERY_MAP),
+    Msg.GET_STATUS_MYSTERY: Msg(Msg.READ, "40220001", None),
+    Msg.GET_PREINFUSION_TIMES: Msg(Msg.READ, "00E20004", PREINFUSION_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
@@ -578,6 +608,9 @@ MSGS = {
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
     Msg.SET_DOSE_HOT_WATER: Msg(Msg.WRITE, "001E0001", None),
     Msg.SET_PREBREW_TIMES: Msg(Msg.WRITE, "000C0001", None),
+    Msg.SET_START_BACKFLUSH: Msg(Msg.WRITE, "00E10001", None),
+    Msg.SET_PREINFUSION_TIME: Msg(Msg.WRITE, "00E20001", None),
+    Msg.SET_STEAM_BOILER_ENABLE: Msg(Msg.WRITE, "00E10001", None),
 }
 
 # 0000:001f - Config

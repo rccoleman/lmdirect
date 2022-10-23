@@ -17,6 +17,8 @@ from .msgs import (
     DAYS_SINCE_BUILT,
     DIVIDE_KEYS,
     DRINK_OFFSET_MAP,
+    ENABLE_PREBREWING,
+    ENABLE_PREINFUSION,
     FIRMWARE_VER,
     FRONT_PANEL_DISPLAY,
     GATEWAY_DRINK_MAP,
@@ -28,7 +30,9 @@ from .msgs import (
     MSGS,
     OFF,
     ON,
+    PREBREW_FLAG,
     SERIAL_NUMBERS,
+    STEAM_BOILER_ENABLE,
     TIME,
     TOTAL_COFFEE,
     TOTAL_COFFEE_ACTIVATIONS,
@@ -455,9 +459,14 @@ class Connection:
                         "\xff", "\u25A0"
                     )  # turn \xff into a solid block (heating element on)
                 )
-            elif key in AUTO_SCHED_MAP.values() and elem.index == CALCULATED_VALUE:
+            elif elem.index == CALCULATED_VALUE and key in AUTO_SCHED_MAP.values():
                 self.calculate_auto_sched_times(key)
                 continue
+            elif key == STEAM_BOILER_ENABLE:
+                value = (value == 0x81)
+            elif elem.index == CALCULATED_VALUE and key in [ENABLE_PREBREWING, ENABLE_PREINFUSION]:
+                state = self._current_status.get(PREBREW_FLAG)
+                value = state == (1 if key == ENABLE_PREBREWING else 2)
 
             self._current_status[key] = handle_cached_value(key, value)
 

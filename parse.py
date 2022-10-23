@@ -33,6 +33,8 @@ def checksum(buffer):
 with open(filename) as json_file:
     data = json.load(json_file)
 
+    print(f"Parsing {filename}")
+
     for item in data:
         layers = item["_source"]["layers"]
         ip_src = layers["ip"]["ip.src"]

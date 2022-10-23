@@ -17,6 +17,8 @@ from lmdirect.const import (
     SET_COFFEE_TEMP,
     SET_STEAM_TEMP,
     SET_PREBREWING_ENABLE,
+    SET_PREINFUSION_TIME,
+    SET_STEAM_BOILER_ENABLE,
 )
 
 from .connection import Connection
@@ -28,6 +30,7 @@ from .msgs import (
     DOSE,
     DOSE_HOT_WATER,
     ENABLE_PREBREWING,
+    ENABLE_PREINFUSION,
     FIRMWARE_VER,
     GLOBAL,
     HOUR,
@@ -38,16 +41,21 @@ from .msgs import (
     OFF,
     ON,
     POWER,
+    PREBREW_FLAG,
     PREBREWING,
+    PREINFUSION,
     TOFF,
     TON,
     TSET_COFFEE,
     TSET_STEAM,
+    STEAM_BOILER_ENABLE,
     TYPE_AUTO_ON_OFF,
     TYPE_COFFEE_TEMP,
     TYPE_MAIN,
     TYPE_PREBREW,
     TYPE_STEAM_TEMP,
+    TYPE_PREINFUSION,
+    TYPE_STEAM_BOILER_ENABLE,
     Msg,
 )
 
@@ -73,6 +81,8 @@ class LMDirect(Connection):
                 SET_COFFEE_TEMP,
                 SET_STEAM_TEMP,
                 SET_PREBREWING_ENABLE,
+                SET_PREINFUSION_TIME,
+                SET_STEAM_BOILER_ENABLE,
             ]
         }
 
@@ -131,6 +141,7 @@ class LMDirect(Connection):
             Msg.GET_DRINK_STATS,
             Msg.GET_USAGE_STATS,
             Msg.GET_FRONT_DISPLAY,
+            Msg.GET_PREINFUSION_TIMES,
         ]
 
         _LOGGER.debug("Requesting status")
@@ -375,6 +386,41 @@ class LMDirect(Connection):
 
             self._call_callbacks(entity_type=TYPE_PREBREW)
 
+    async def set_preinfusion_time(self, key=None, seconds=None):
+        """Set preinfusion times in seconds."""
+
+        async with self._locks[SET_PREINFUSION_TIME]:
+            if None in [key, seconds]:
+                raise InvalidInput(
+                    "set_preinfusion_time: Some parameters invalid {key=} {seconds=}"
+                )
+
+            seconds = float(seconds)
+            isinstance(key, str) and (key := int(key))
+
+            """Validate input."""
+            if not (
+                0 <= seconds <= 5.9 and 1 <= key <= 4
+            ):
+                raise InvalidInput(f"Invalid values {seconds=}")
+
+            if not (
+                (self.model_name == MODEL_GS3_AV and 1 <= key <= 4)
+                or (self.model_name == MODEL_LM and key == 1)
+            ):
+                raise InvalidInput(f"Invalid values {key=}")
+
+            """Set "on" time."""
+            key = self._convert_to_ascii(Msg.PREINFUSION_BASE + (key - 1), size=1)
+            data = self._convert_to_ascii(int(seconds * 10), size=1)
+            await self._send_msg(Msg.SET_PREINFUSION_TIME, base=key, data=data)
+
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[self._get_key((PREINFUSION, f"k{key}"))] = seconds
+
+            self._call_callbacks(entity_type=TYPE_PREBREW)
+
     async def set_coffee_temp(self, temp=None):
         """Set the coffee boiler temp in Celcius."""
 
@@ -417,17 +463,59 @@ class LMDirect(Connection):
         """Turn prebrewing on or off."""
 
         async with self._locks[SET_PREBREWING_ENABLE]:
-            prebrew_value = 1 if enable else 0
-            data = self._convert_to_ascii(prebrew_value, size=1)
+            value = 1 if enable else 0
+            data = self._convert_to_ascii(value, size=1)
 
             await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
 
             """Update the stored values to immediately reflect the change"""
             for state in [self._temp_state, self._current_status]:
-                state[ENABLE_PREBREWING] = prebrew_value
+                state[PREBREW_FLAG] = value
+                state[ENABLE_PREBREWING] = (value == 1)
+                state[ENABLE_PREINFUSION] = (value == 2)
 
             self._call_callbacks(entity_type=TYPE_PREBREW)
+            self._call_callbacks(entity_type=TYPE_PREINFUSION)
 
+    async def set_preinfusion_enable(self, enable):
+        """Turn preinfusion on or off."""
+
+        """Preinfusion is essentially a variant of prebrewing."""
+        async with self._locks[SET_PREBREWING_ENABLE]:
+            value = 2 if enable else 0
+            data = self._convert_to_ascii(value, size=1)
+
+            await self._send_msg(Msg.SET_PREBREWING_ENABLE, data=data)
+
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[PREBREW_FLAG] = value
+                state[ENABLE_PREINFUSION] = (value == 2)
+                state[ENABLE_PREBREWING] = (value == 1)
+
+            self._call_callbacks(entity_type=TYPE_PREINFUSION)
+            self._call_callbacks(entity_type=TYPE_PREBREW)
+
+    async def set_steam_boiler_enable(self, enable):
+        """Enable or disable the steam boiler."""
+
+        async with self._locks[SET_STEAM_BOILER_ENABLE]:
+            value = 0x81 if enable else 0x01
+            data = self._convert_to_ascii(value, size=1)
+
+            await self._send_msg(Msg.SET_STEAM_BOILER_ENABLE, data=data)
+
+            """Update the stored values to immediately reflect the change"""
+            for state in [self._temp_state, self._current_status]:
+                state[STEAM_BOILER_ENABLE] = enable
+
+            self._call_callbacks(entity_type=TYPE_STEAM_BOILER_ENABLE)
+
+    async def set_start_backflush(self):
+        """Initiate a backflush cycle."""
+        data = self._convert_to_ascii(0x82, size=1)
+
+        await self._send_msg(Msg.SET_START_BACKFLUSH, data=data)
 
 class InvalidInput(Exception):
     """Error to indicate that invalid parameters were provided."""
