@@ -33,11 +33,14 @@ from .msgs import (
     PREBREW_FLAG,
     SERIAL_NUMBERS,
     STEAM_BOILER_ENABLE,
+    TEMP_COFFEE,
     TIME,
     TOTAL_COFFEE,
     TOTAL_COFFEE_ACTIVATIONS,
     TOTAL_FLUSHING,
     UPDATE_AVAILABLE,
+    BREW_GROUP_OFFSET,
+    T_UNIT,
     Elem,
     Msg,
 )
@@ -442,6 +445,15 @@ class Connection:
                 if not value:
                     self._current_status.pop(key, None)
                     continue
+            elif key == BREW_GROUP_OFFSET:
+                value = (value & 0xFF00) >> 8 | (value & 0x00FF) << 8
+                units = self._current_status.get(T_UNIT, 0x99)
+                if units == 0x99:
+                    value *= 200/360
+
+                #mid = 100 if units == 0x55 else 180
+                #value = round((value - mid) / 10, 1)
+                value = round((value - 100) / 10, 1)
             elif key in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
                 """Don't add attributes and remove them if machine isn't currently running."""
                 if not value:
@@ -467,6 +479,12 @@ class Connection:
             elif elem.index == CALCULATED_VALUE and key in [ENABLE_PREBREWING, ENABLE_PREINFUSION]:
                 state = self._current_status.get(PREBREW_FLAG)
                 value = state == (1 if key == ENABLE_PREBREWING else 2)
+
+            if key == TEMP_COFFEE:
+                # The offset is used to set the boiler temp to achieve the
+                # user-set temp at the grouphead, so subtract to get the
+                # group temp
+                value = round(value - self._current_status.get(BREW_GROUP_OFFSET, 0), 1)
 
             self._current_status[key] = handle_cached_value(key, value)
 

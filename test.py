@@ -9,8 +9,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-_LOGGER.setLevel(logging.DEBUG)
-logging.getLogger("lmdirect").setLevel(logging.DEBUG)
+_LOGGER.setLevel(logging.INFO)
+logging.getLogger("lmdirect").setLevel(logging.INFO)
 
 
 class lmtest:
@@ -79,7 +79,7 @@ class lmtest:
                 print(
                     "\n1=Power <on/off>, 2=Status, 3=Coffee Temp <temp>, 4=Steam Temp <temp>, 5=PB <on/off>\n"
                     "6=Auto on/off <0=global or day (mon=1)> <on/off>, 7=Dose <key> <sec>, 8=Hot Water Dose <sec>\n"
-                    "9=PB times <key> <on off>, 10=Read Memory <AAAALLLL>, 11=Read Memory Block <XX>"
+                    "9=PB times <key> <on off>, 10=Read Memory <AAAALLLL>, 11=Read Memory Block <XX>\n"
                     "12=Set on/off times <day> <hour_on> <hour_off>:\n"
                 )
                 response = (

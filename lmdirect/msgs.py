@@ -48,6 +48,10 @@ TOTAL_FLUSHING = "total_flushing"
 MACHINE_NAME = "machine_name"
 FRONT_PANEL_DISPLAY = "front_panel_display"
 MYSTERY_VALUES = "mystery_values"
+BREW_GROUP_OFFSET = "brew_group_offset"
+PID_OFFSET = "pid_offset"
+T_UNIT = "t_unit"
+WATER_FILTER_LITERS = "water_filter_liters"
 
 VAL = "val"
 
@@ -127,7 +131,7 @@ TYPE_PREINFUSION = 8
 TYPE_START_BACKFLUSH = 9
 TYPE_STEAM_BOILER_ENABLE = 10
 
-DIVIDE_KEYS = ["temp", "prebrewing_to", "preinfusion_k"]
+DIVIDE_KEYS = ["temp", "prebrewing_to", "preinfusion_k", "pid_offset"]
 SERIAL_NUMBERS = [MACHINE_SER_NUM, MODULE_SER_NUM]
 
 # Response Maps
@@ -160,7 +164,10 @@ class Elem:
 # 04 D8: Steam Temp (124.0C)
 # B6: Check byte
 
-TEMP_REPORT_MAP = {Elem(0, 2): TEMP_COFFEE, Elem(2, 2): TEMP_STEAM}
+TEMP_REPORT_MAP = {
+    #Elem(0, 2): TEMP_COFFEE,
+    #Elem(2, 2): TEMP_STEAM
+}
 
 # R
 # 40 00 00 20: Message
@@ -185,8 +192,8 @@ STATUS_MAP = {
     # Elem(23): POWER,
     Elem(24): WATER_RESERVOIR_CONTACT,
     Elem(27): HEATING_STATE,
-    # Elem(28, 2): TEMP_COFFEE,
-    # Elem(30, 2): TEMP_STEAM,
+    Elem(28, 2): TEMP_COFFEE,
+    Elem(30, 2): TEMP_STEAM,
     Elem(32): MYSTERY_1,
     Elem(33): MYSTERY_2,
     Elem(34): STEAM_BOILER_ENABLE,
@@ -321,15 +328,6 @@ AUTO_BITFIELD_MAP = {
     6: (SAT, AUTO),
     7: (SUN, AUTO),
 }
-
-# W: Write
-# 00 00 00 01 : Message
-# OK: Result
-# 72: Check byte
-
-# WRITE_RESULT_MAP = {
-#     Elem(0, 1, type=Elem.STRING): WRITE_RESULT,
-# }
 
 # App: R 01 00 00 11 D5
 # Machine:
@@ -509,33 +507,59 @@ PREINFUSION_MAP = {
     Elem(3): (PREINFUSION, "k4"),
 }
 
+# 64
+# 00
+# 64
+# 00
+# 70
+# 00
+# 00
+# 00
+# 00
+# 01
+# 01
+# 69: Group Offset (0-200 C, 0-360 F, +/- from the midpoint)
+# 00
+# 55
+# 00
+# 00
+
+FACTORY_CONFIG_MAP = {
+    Elem(4): PID_OFFSET,
+    Elem(6): WATER_FILTER_LITERS,
+    Elem(11, 2): BREW_GROUP_OFFSET,
+    Elem(13): T_UNIT,
+}
+
 class Msg:
-    GET_STATUS = 0
-    GET_CONFIG = 1
-    GET_AUTO_SCHED = 2
-    SET_POWER = 3
-    GET_TEMP_REPORT = 4
-    GET_AUTO_ENABLE = 4
-    SET_AUTO_ENABLE = 5
-    GET_SER_NUM = 6
-    GET_DATETIME = 7
-    SET_COFFEE_TEMP = 8
-    SET_STEAM_TEMP = 9
-    SET_PREBREWING_ENABLE = 10
-    SET_AUTO_SCHED = 11
-    SET_DOSE = 12
-    SET_DOSE_HOT_WATER = 13
-    SET_PREBREW_TIMES = 14
-    GET_DRINK_STATS = 15
-    GET_WATER_FLOW = 16
-    GET_USAGE_STATS = 17
-    GET_FRONT_DISPLAY = 18
-    GET_MYSTERY = 19
-    SET_START_BACKFLUSH = 20
-    GET_STATUS_MYSTERY = 21
-    GET_PREINFUSION_TIMES = 22
-    SET_PREINFUSION_TIME = 23
-    SET_STEAM_BOILER_ENABLE = 24
+    GET_STATUS = "get_status"
+    GET_SHORT_STATUS = "get_short_status"
+    GET_CONFIG = "get_config"
+    GET_AUTO_ON_OFF_TIMES = "get_auto_sched"
+    SET_AUTO_ON_OFF_TIMES = "set_auto_on_off_times"
+    SET_POWER = "set_power"
+    GET_TEMP_REPORT = "get_temp_report"
+    GET_AUTO_ON_OFF_ENABLE = "get_auto_on_off_enable"
+    SET_AUTO_ON_OFF_ENABLE = "set_auto_on_off_enable"
+    GET_SER_NUM = "get_ser_num"
+    GET_DATETIME = "get_datetime"
+    SET_COFFEE_TEMP = "set_coffee_temp"
+    SET_STEAM_TEMP = "set_steam_temp"
+    SET_PREBREWING_ENABLE = "set_prebrewing_enable"
+    SET_DOSE = "set_dose"
+    SET_DOSE_HOT_WATER = "set_dose_hot_water"
+    SET_PREBREW_TIMES = "set_prebrew_times"
+    GET_DRINK_STATS = "get_drink_stats"
+    GET_WATER_FLOW = "get_water_flow"
+    GET_USAGE_STATS = "get_usage_stats"
+    GET_FRONT_DISPLAY = "get_front_display"
+    GET_MYSTERY = "get_mystery"
+    SET_START_BACKFLUSH = "set_start_backflush"
+    GET_STATUS_MYSTERY = "get_status_mystery"
+    GET_PREINFUSION_TIMES = "get_preinfusion_times"
+    SET_PREINFUSION_TIME = "set_preinfusion_time"
+    SET_STEAM_BOILER_ENABLE = "set_steam_boiler_enable"
+    GET_FACTORY_CONFIG = "get_factory_config"
 
     """Auto on/off address starts at 0x11 for Monday and increments by 4 thereafter."""
     AUTO_ON_OFF_HOUR_BASE = 0x11
@@ -584,9 +608,10 @@ class Msg:
 MSGS = {
     # Reads
     Msg.GET_STATUS: Msg(Msg.READ, "40000023", STATUS_MAP),
+    Msg.GET_SHORT_STATUS: Msg(Msg.READ, "40000020", None),
     Msg.GET_CONFIG: Msg(Msg.READ, "0000001F", CONFIG_MAP),
-    Msg.GET_AUTO_SCHED: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
-    Msg.GET_AUTO_ENABLE: Msg(Msg.READ, "03100001", AUTO_ENABLE_MAP),
+    Msg.GET_AUTO_ON_OFF_TIMES: Msg(Msg.READ, "0310001D", AUTO_SCHED_MAP),
+    Msg.GET_AUTO_ON_OFF_ENABLE: Msg(Msg.READ, "03100001", AUTO_ENABLE_MAP),
     Msg.GET_TEMP_REPORT: Msg(Msg.READ, "401C0004", TEMP_REPORT_MAP),
     Msg.GET_SER_NUM: Msg(Msg.READ, "01000011", SER_NUM_MAP),
     Msg.GET_DATETIME: Msg(Msg.READ, "03000007", DATETIME_MAP),
@@ -597,13 +622,14 @@ MSGS = {
     Msg.GET_MYSTERY: Msg(Msg.READ, "60DA0012", MYSTERY_MAP),
     Msg.GET_STATUS_MYSTERY: Msg(Msg.READ, "40220001", None),
     Msg.GET_PREINFUSION_TIMES: Msg(Msg.READ, "00E20004", PREINFUSION_MAP),
+    Msg.GET_FACTORY_CONFIG: Msg(Msg.READ, "4070000E", FACTORY_CONFIG_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
     Msg.SET_STEAM_TEMP: Msg(Msg.WRITE, "00090002", None),
     Msg.SET_PREBREWING_ENABLE: Msg(Msg.WRITE, "000B0001", None),
-    Msg.SET_AUTO_SCHED: Msg(Msg.WRITE, "03100002", None),
-    Msg.SET_AUTO_ENABLE: Msg(Msg.WRITE, "03100001", None),
+    Msg.SET_AUTO_ON_OFF_TIMES: Msg(Msg.WRITE, "03100002", None),
+    Msg.SET_AUTO_ON_OFF_ENABLE: Msg(Msg.WRITE, "03100001", None),
     # Write config for keys (second byte is base + the key number and will be replaced)
     Msg.SET_DOSE: Msg(Msg.WRITE, "00140002", None),
     Msg.SET_DOSE_HOT_WATER: Msg(Msg.WRITE, "001E0001", None),

@@ -8,17 +8,6 @@ from lmdirect.const import (
     MACHINE_NAME,
     MODEL_NAME,
     SERIAL_NUMBER,
-    SET_POWER,
-    SET_AUTO_ON_OFF,
-    SET_AUTO_ON_OFF_TIMES,
-    SET_DOSE,
-    SET_DOSE_HOT_WATER,
-    SET_PREBREW_TIMES,
-    SET_COFFEE_TEMP,
-    SET_STEAM_TEMP,
-    SET_PREBREWING_ENABLE,
-    SET_PREINFUSION_TIME,
-    SET_STEAM_BOILER_ENABLE,
 )
 
 from .connection import Connection
@@ -72,17 +61,17 @@ class LMDirect(Connection):
         self._locks = {
             x: asyncio.Lock()
             for x in [
-                SET_POWER,
-                SET_AUTO_ON_OFF,
-                SET_AUTO_ON_OFF_TIMES,
-                SET_DOSE,
-                SET_DOSE_HOT_WATER,
-                SET_PREBREW_TIMES,
-                SET_COFFEE_TEMP,
-                SET_STEAM_TEMP,
-                SET_PREBREWING_ENABLE,
-                SET_PREINFUSION_TIME,
-                SET_STEAM_BOILER_ENABLE,
+                Msg.SET_POWER,
+                Msg.SET_AUTO_ON_OFF_ENABLE,
+                Msg.SET_AUTO_ON_OFF_TIMES,
+                Msg.SET_DOSE,
+                Msg.SET_DOSE_HOT_WATER,
+                Msg.SET_PREBREW_TIMES,
+                Msg.SET_COFFEE_TEMP,
+                Msg.SET_STEAM_TEMP,
+                Msg.SET_PREBREWING_ENABLE,
+                Msg.SET_PREINFUSION_TIME,
+                Msg.SET_STEAM_BOILER_ENABLE,
             ]
         }
 
@@ -137,11 +126,12 @@ class LMDirect(Connection):
         msgs = [
             Msg.GET_STATUS,
             Msg.GET_CONFIG,
-            Msg.GET_AUTO_SCHED,
+            Msg.GET_AUTO_ON_OFF_TIMES,
             Msg.GET_DRINK_STATS,
             Msg.GET_USAGE_STATS,
             Msg.GET_FRONT_DISPLAY,
             Msg.GET_PREINFUSION_TIMES,
+            Msg.GET_FACTORY_CONFIG
         ]
 
         _LOGGER.debug("Requesting status")
@@ -183,7 +173,7 @@ class LMDirect(Connection):
 
     async def set_power(self, power):
         """Send power on or power off commands."""
-        async with self._locks[SET_POWER]:
+        async with self._locks[Msg.SET_POWER]:
             power_value = 1 if power else 0
             value = self._convert_to_ascii(power_value, size=1)
             await self._send_msg(Msg.SET_POWER, data=value)
@@ -194,17 +184,17 @@ class LMDirect(Connection):
 
             self._call_callbacks(entity_type=TYPE_MAIN)
 
-    async def set_auto_on_off(self, day_of_week=None, enable=None):
+    async def set_auto_on_off_enable(self, day_of_week=None, enable=None):
         """Configure auto on/off."""
 
-        async with self._locks[SET_AUTO_ON_OFF]:
+        async with self._locks[Msg.SET_AUTO_ON_OFF_ENABLE]:
             if None in [day_of_week, enable]:
                 raise InvalidInput(f"Some parameters invalid {day_of_week=} {enable=}")
 
             """We need the existing register value, so fail if we don't have it yet."""
             if AUTO_BITFIELD not in self._current_status:
                 """Kick off a query so that we'll have the data later."""
-                await self._send_msg(Msg.GET_AUTO_SCHED)
+                await self._send_msg(Msg.GET_AUTO_ON_OFF_TIMES)
                 raise NotReady(f"Query not completed yet")
 
             """Extract value for this field."""
@@ -214,9 +204,9 @@ class LMDirect(Connection):
             buf_to_send = self._convert_to_ascii(bitfield, 1)
 
             _LOGGER.debug(
-                f"set_on_off_enable: {buf_to_send=}, {MSGS[Msg.SET_AUTO_ENABLE].msg=}"
+                f"set_on_off_enable: {buf_to_send=}, {MSGS[Msg.SET_AUTO_ON_OFF_ENABLE].msg=}"
             )
-            await self._send_msg(Msg.SET_AUTO_ENABLE, data=buf_to_send)
+            await self._send_msg(Msg.SET_AUTO_ON_OFF_ENABLE, data=buf_to_send)
 
             """Update the stored values to immediately reflect the change"""
             for state in [self._temp_state, self._current_status]:
@@ -227,7 +217,7 @@ class LMDirect(Connection):
 
     async def set_auto_on_off_global(self, value):
         """Set global auto on/off."""
-        await self.set_auto_on_off(GLOBAL, value)
+        await self.set_auto_on_off_enable(GLOBAL, value)
 
     async def set_auto_on_off_times(
         self,
@@ -238,7 +228,7 @@ class LMDirect(Connection):
         minute_off=None,
     ):
         """Configure auto on/off hours."""
-        async with self._locks[SET_AUTO_ON_OFF_TIMES]:
+        async with self._locks[Msg.SET_AUTO_ON_OFF_TIMES]:
             if None in [day_of_week, hour_on, minute_on, hour_off, minute_off]:
                 raise InvalidInput(
                     f"Some parameters invalid {day_of_week=} {hour_on=} {minute_on=} {hour_off=} {minute_off=}"
@@ -270,9 +260,9 @@ class LMDirect(Connection):
                 Msg.AUTO_ON_OFF_HOUR_BASE + (DAYS.index(day_of_week) * 2), size=1
             )
             _LOGGER.debug(
-                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
+                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_ON_OFF_TIMES].msg=}"
             )
-            await self._send_msg(Msg.SET_AUTO_SCHED, base=address_base, data=data)
+            await self._send_msg(Msg.SET_AUTO_ON_OFF_TIMES, base=address_base, data=data)
 
             """Update minutes."""
             data = self._convert_to_ascii(minute_on, size=1) + self._convert_to_ascii(
@@ -282,9 +272,9 @@ class LMDirect(Connection):
                 Msg.AUTO_ON_OFF_MIN_BASE + (DAYS.index(day_of_week) * 2), size=1
             )
             _LOGGER.debug(
-                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_SCHED].msg=}"
+                f"set_on_off_times: {data=}, {address_base=}, {MSGS[Msg.SET_AUTO_ON_OFF_TIMES].msg=}"
             )
-            await self._send_msg(Msg.SET_AUTO_SCHED, base=address_base, data=data)
+            await self._send_msg(Msg.SET_AUTO_ON_OFF_TIMES, base=address_base, data=data)
 
         """Update the stored values to immediately reflect the change"""
         for state in [self._temp_state, self._current_status]:
@@ -300,7 +290,7 @@ class LMDirect(Connection):
     async def set_dose(self, key=None, pulses=None):
         """Set the coffee dose in pulses (~0.5ml)."""
 
-        async with self._locks[SET_DOSE]:
+        async with self._locks[Msg.SET_DOSE]:
             if None in [key, pulses]:
                 raise InvalidInput(
                     f"set_dose: Some parameters not specified {key=} {pulses=}"
@@ -326,7 +316,7 @@ class LMDirect(Connection):
     async def set_dose_hot_water(self, seconds=None):
         """Set the hot water dose in seconds."""
 
-        async with self._locks[SET_DOSE_HOT_WATER]:
+        async with self._locks[Msg.SET_DOSE_HOT_WATER]:
             if seconds is None:
                 raise InvalidInput("set_dose_hot_water: Seconds not specified")
 
@@ -348,7 +338,7 @@ class LMDirect(Connection):
     async def set_prebrew_times(self, key=None, seconds_on=None, seconds_off=None):
         """Set prebrew on/off times in seconds."""
 
-        async with self._locks[SET_PREBREW_TIMES]:
+        async with self._locks[Msg.SET_PREBREW_TIMES]:
             if None in [key, seconds_on, seconds_off]:
                 raise InvalidInput(
                     "set_prebrew_times: Some parameters invalid {key=} {seconds_on=} {seconds_off=}"
@@ -389,7 +379,7 @@ class LMDirect(Connection):
     async def set_preinfusion_time(self, key=None, seconds=None):
         """Set preinfusion times in seconds."""
 
-        async with self._locks[SET_PREINFUSION_TIME]:
+        async with self._locks[Msg.SET_PREINFUSION_TIME]:
             if None in [key, seconds]:
                 raise InvalidInput(
                     "set_preinfusion_time: Some parameters invalid {key=} {seconds=}"
@@ -424,7 +414,7 @@ class LMDirect(Connection):
     async def set_coffee_temp(self, temp=None):
         """Set the coffee boiler temp in Celcius."""
 
-        async with self._locks[SET_COFFEE_TEMP]:
+        async with self._locks[Msg.SET_COFFEE_TEMP]:
             if temp is None:
                 raise InvalidInput("set_coffee__temp: Temperature not specified")
 
@@ -443,7 +433,7 @@ class LMDirect(Connection):
     async def set_steam_temp(self, temp=None):
         """Set the steam boiler temp in Celcius."""
 
-        async with self._locks[SET_STEAM_TEMP]:
+        async with self._locks[Msg.SET_STEAM_TEMP]:
             if temp is None:
                 raise InvalidInput("set_steam_temp: Temperature not specified")
 
@@ -462,7 +452,7 @@ class LMDirect(Connection):
     async def set_prebrewing_enable(self, enable):
         """Turn prebrewing on or off."""
 
-        async with self._locks[SET_PREBREWING_ENABLE]:
+        async with self._locks[Msg.SET_PREBREWING_ENABLE]:
             value = 1 if enable else 0
             data = self._convert_to_ascii(value, size=1)
 
@@ -481,7 +471,7 @@ class LMDirect(Connection):
         """Turn preinfusion on or off."""
 
         """Preinfusion is essentially a variant of prebrewing."""
-        async with self._locks[SET_PREBREWING_ENABLE]:
+        async with self._locks[Msg.SET_PREBREWING_ENABLE]:
             value = 2 if enable else 0
             data = self._convert_to_ascii(value, size=1)
 
@@ -499,7 +489,7 @@ class LMDirect(Connection):
     async def set_steam_boiler_enable(self, enable):
         """Enable or disable the steam boiler."""
 
-        async with self._locks[SET_STEAM_BOILER_ENABLE]:
+        async with self._locks[Msg.SET_STEAM_BOILER_ENABLE]:
             value = 0x81 if enable else 0x01
             data = self._convert_to_ascii(value, size=1)
 
