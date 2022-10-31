@@ -448,12 +448,16 @@ class Connection:
             elif key == BREW_GROUP_OFFSET:
                 value = (value & 0xFF00) >> 8 | (value & 0x00FF) << 8
                 units = self._current_status.get(T_UNIT, 0x99)
-                if units == 0x99:
-                    value *= 200/360
+                # The Linea Mini has no offset
+                if units == 0x00:
+                    value = 0
+                # check if the factory default is in Fahrenheit
+                else:
+                    if units == 0x99:
+                        # convert to Celcius
+                        value *= 200/360
 
-                #mid = 100 if units == 0x55 else 180
-                #value = round((value - mid) / 10, 1)
-                value = round((value - 100) / 10, 1)
+                    value = round((value - 100) / 10, 1)
             elif key in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
                 """Don't add attributes and remove them if machine isn't currently running."""
                 if not value:
@@ -475,7 +479,7 @@ class Connection:
                 self.calculate_auto_sched_times(key)
                 continue
             elif key == STEAM_BOILER_ENABLE:
-                value = (value == 0x81)
+                value = (value & 0x01) == 1
             elif elem.index == CALCULATED_VALUE and key in [ENABLE_PREBREWING, ENABLE_PREINFUSION]:
                 state = self._current_status.get(PREBREW_FLAG)
                 value = state == (1 if key == ENABLE_PREBREWING else 2)
