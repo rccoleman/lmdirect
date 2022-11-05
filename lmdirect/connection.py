@@ -457,7 +457,7 @@ class Connection:
                         # convert to Celcius
                         value *= 200/360
 
-                    value = round((value - 100) / 10, 1)
+                    value = 2 * round((value - 100) / 10, 1)
             elif key in [KEY_ACTIVE, CURRENT_PULSE_COUNT]:
                 """Don't add attributes and remove them if machine isn't currently running."""
                 if not value:

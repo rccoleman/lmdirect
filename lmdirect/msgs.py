@@ -165,8 +165,8 @@ class Elem:
 # B6: Check byte
 
 TEMP_REPORT_MAP = {
-    #Elem(0, 2): TEMP_COFFEE,
-    #Elem(2, 2): TEMP_STEAM
+    Elem(0, 2): TEMP_COFFEE,
+    Elem(2, 2): TEMP_STEAM
 }
 
 # R
@@ -192,8 +192,8 @@ STATUS_MAP = {
     # Elem(23): POWER,
     Elem(24): WATER_RESERVOIR_CONTACT,
     Elem(27): HEATING_STATE,
-    Elem(28, 2): TEMP_COFFEE,
-    Elem(30, 2): TEMP_STEAM,
+    #Elem(28, 2): TEMP_COFFEE,
+    #Elem(30, 2): TEMP_STEAM,
     Elem(32): MYSTERY_1,
     Elem(33): MYSTERY_2,
     Elem(34): STEAM_BOILER_ENABLE,
