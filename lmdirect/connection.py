@@ -38,9 +38,11 @@ from .msgs import (
     TOTAL_COFFEE,
     TOTAL_COFFEE_ACTIVATIONS,
     TOTAL_FLUSHING,
+    UNIT_FAHRENHEIT,
     UPDATE_AVAILABLE,
     BREW_GROUP_OFFSET,
     T_UNIT,
+    FACTORY_OFFSET,
     Elem,
     Msg,
 )
@@ -447,14 +449,15 @@ class Connection:
                     continue
             elif key == BREW_GROUP_OFFSET:
                 value = (value & 0xFF00) >> 8 | (value & 0x00FF) << 8
-                units = self._current_status.get(T_UNIT, 0x99)
+                units = self._current_status.get(T_UNIT, 0)
+                factory_offset = self._current_status.get(FACTORY_OFFSET, 0)
+
                 # The Linea Mini has no offset
-                if units == 0x00:
+                if factory_offset == 0:
                     value = 0
-                # check if the factory default is in Fahrenheit
                 else:
-                    if units == 0x99:
-                        # convert to Celcius
+                    # convert to celcius if the machine is set to Fahrenheit
+                    if units == UNIT_FAHRENHEIT:
                         value *= 200/360
 
                     value = 2 * round((value - 100) / 10, 1)

@@ -49,9 +49,13 @@ MACHINE_NAME = "machine_name"
 FRONT_PANEL_DISPLAY = "front_panel_display"
 MYSTERY_VALUES = "mystery_values"
 BREW_GROUP_OFFSET = "brew_group_offset"
+FACTORY_OFFSET = "factory_offset"
 PID_OFFSET = "pid_offset"
 T_UNIT = "t_unit"
 WATER_FILTER_LITERS = "water_filter_liters"
+
+UNIT_CELCIUS = 0
+UNIT_FAHRENHEIT = 1
 
 VAL = "val"
 
@@ -525,10 +529,11 @@ PREINFUSION_MAP = {
 # 00
 
 FACTORY_CONFIG_MAP = {
-    Elem(4): PID_OFFSET,
-    Elem(6): WATER_FILTER_LITERS,
-    Elem(11, 2): BREW_GROUP_OFFSET,
-    Elem(13): T_UNIT,
+    Elem(3): T_UNIT,
+    Elem(20): PID_OFFSET,
+    Elem(22): WATER_FILTER_LITERS,
+    Elem(27, 2): BREW_GROUP_OFFSET,
+    Elem(29): FACTORY_OFFSET,
 }
 
 class Msg:
@@ -622,7 +627,7 @@ MSGS = {
     Msg.GET_MYSTERY: Msg(Msg.READ, "60DA0012", MYSTERY_MAP),
     Msg.GET_STATUS_MYSTERY: Msg(Msg.READ, "40220001", None),
     Msg.GET_PREINFUSION_TIMES: Msg(Msg.READ, "00E20004", PREINFUSION_MAP),
-    Msg.GET_FACTORY_CONFIG: Msg(Msg.READ, "4070000E", FACTORY_CONFIG_MAP),
+    Msg.GET_FACTORY_CONFIG: Msg(Msg.READ, "40600020", FACTORY_CONFIG_MAP),
     # Writes
     Msg.SET_POWER: Msg(Msg.WRITE, "00000001", None),
     Msg.SET_COFFEE_TEMP: Msg(Msg.WRITE, "00070002", None),
