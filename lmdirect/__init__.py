@@ -390,7 +390,7 @@ class LMDirect(Connection):
 
             """Validate input."""
             if not (
-                0 <= seconds <= 5.9 and 1 <= key <= 4
+                0 <= seconds <= 24.9 and 1 <= key <= 4
             ):
                 raise InvalidInput(f"Invalid values {seconds=}")
 
