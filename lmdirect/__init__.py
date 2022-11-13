@@ -169,6 +169,12 @@ class LMDirect(Connection):
             None,
         )
 
+    def _get_key(self, k):
+        """Construct tag name if needed."""
+        if isinstance(k, tuple):
+            k = "_".join(k)
+        return k
+
     """Services"""
 
     async def set_power(self, power):
@@ -210,7 +216,7 @@ class LMDirect(Connection):
 
             """Update the stored values to immediately reflect the change"""
             for state in [self._temp_state, self._current_status]:
-                state[day_of_week] = ENABLED if enable else DISABLED
+                state[self._get_key((day_of_week, AUTO))] = ENABLED if enable else DISABLED
                 state[AUTO_BITFIELD] = bitfield
 
             self._call_callbacks(entity_type=TYPE_AUTO_ON_OFF)
