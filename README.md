@@ -1,7 +1,7 @@
 # lmdirect
 
 > [!WARNING]
-> This integration will most likely not work with your machine. Any machine, that updated to Gateway v3 in or before September 2023, will need to use https://github.com/zweckj/lmcloud.  If you're looking for the Home Assistant integration, please see [this one](https://github.com/zweckj/lamarzocco)
+> This package will most likely not work with your machine. Any machine, that updated to Gateway v3 in or before September 2023, will need to use https://github.com/zweckj/lmcloud.  If you're looking for the Home Assistant integration, please see [this one](https://github.com/zweckj/lamarzocco)
 >
 > This repo will be archived.
 
