@@ -1,5 +1,10 @@
 # lmdirect
 
+> [!WARNING]
+> This integration will most likely not work with your machine. Any machine, that updated to Gateway v3 in or before September 2023, will need to use https://github.com/zweckj/lmcloud.  If you're looking for the Home Assistant integration, please see [this one](https://github.com/zweckj/lamarzocco)
+>
+> This repo will be archived.
+
 ## Local API access to network-connected La Marzocco espresso machines
 
 This is a prototype library for interacting with the local network API of a La Marzocco espresso machine. It's still in the beginning stages, but currently it's able to retrieve configuration and status information from the machine and turn it on/off. I've reverse-engineered this from decoding the network traffic between the mobile app and the machine, so it's incomplete, imperfect, and may have significant bugs. It works on my La Marzocco GS/3, but I can't guarantee that you'll have a similar experience with yours.
